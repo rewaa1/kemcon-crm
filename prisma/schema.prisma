@@ -1,0 +1,251 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum ProjectStatus {
+  DRAFT
+  CONFIRMED
+  IN_PRODUCTION
+  DELIVERED
+}
+
+enum FabricUnit {
+  METERS
+  ROLLS
+}
+
+enum SupplySource {
+  INVENTORY  // deducted from our stock
+  CLIENT     // provided by the hotel
+  DIRECT     // bought directly for this project, not via inventory
+}
+
+enum PurchaseOrderStatus {
+  PENDING
+  RECEIVED
+  PARTIAL
+  CANCELLED
+}
+
+// ─── Hotels & Contacts ────────────────────────────────────────────────────────
+
+model Hotel {
+  id        String   @id @default(cuid())
+  nameEn    String
+  nameAr    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  locations HotelLocation[]
+  contacts  HotelContact[]
+  projects  Project[]
+}
+
+model HotelLocation {
+  id      String @id @default(cuid())
+  nameEn  String
+  nameAr  String
+  address String?
+
+  hotelId String
+  hotel   Hotel  @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+
+  projectItems ProjectItem[]
+
+  @@index([hotelId])
+}
+
+model HotelContact {
+  id        String  @id @default(cuid())
+  nameEn    String
+  nameAr    String?
+  role      String?
+  phone     String?
+  email     String?
+  isPrimary Boolean @default(false)
+
+  hotelId String
+  hotel   Hotel  @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+
+  @@index([hotelId])
+}
+
+// ─── Vendors ──────────────────────────────────────────────────────────────────
+
+model Vendor {
+  id        String   @id @default(cuid())
+  nameEn    String
+  nameAr    String?
+  phone     String?
+  email     String?
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  purchaseOrders PurchaseOrder[]
+  fabricVendors  FabricVendor[]
+}
+
+// ─── Fabrics & Inventory ──────────────────────────────────────────────────────
+
+model Fabric {
+  id          String     @id @default(cuid())
+  codeRef     String     @unique
+  nameEn      String
+  nameAr      String?
+  description String?
+  unit        FabricUnit @default(METERS)
+  // For rolls: metersPerRoll can vary — stored per stock batch/PO line
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  vendors              FabricVendor[]
+  purchaseOrderLines   PurchaseOrderLine[]
+  inventoryBatches     InventoryBatch[]
+  projectItems         ProjectItem[]
+}
+
+// Junction: a fabric can be sourced from multiple vendors
+model FabricVendor {
+  fabricId String
+  vendorId String
+
+  fabric Fabric @relation(fields: [fabricId], references: [id], onDelete: Cascade)
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@id([fabricId, vendorId])
+}
+
+// Each received PO creates one or more inventory batches
+model InventoryBatch {
+  id             String   @id @default(cuid())
+  fabricId       String
+  fabric         Fabric   @relation(fields: [fabricId], references: [id])
+  // Quantity received (in the fabric's unit)
+  quantityIn     Decimal  @db.Decimal(12, 3)
+  // For rolls: how many meters this specific batch's roll contains
+  metersPerRoll  Decimal? @db.Decimal(10, 3)
+  // Running remaining quantity (decremented when used in projects)
+  quantityLeft   Decimal  @db.Decimal(12, 3)
+  unitCost       Decimal? @db.Decimal(12, 2)
+  currency       String   @default("EGP")
+  receivedAt     DateTime @default(now())
+  notes          String?
+
+  purchaseOrderLineId String?
+  purchaseOrderLine   PurchaseOrderLine? @relation(fields: [purchaseOrderLineId], references: [id])
+
+  usageLines ProjectItemUsage[]
+
+  @@index([fabricId])
+  @@index([purchaseOrderLineId])
+}
+
+// ─── Purchase Orders ──────────────────────────────────────────────────────────
+
+model PurchaseOrder {
+  id          String              @id @default(cuid())
+  poNumber    String              @unique
+  vendorId    String
+  vendor      Vendor              @relation(fields: [vendorId], references: [id])
+  status      PurchaseOrderStatus @default(PENDING)
+  orderedAt   DateTime            @default(now())
+  expectedAt  DateTime?
+  receivedAt  DateTime?
+  notes       String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  // A PO can optionally be linked to a specific project
+  projectId   String?
+  project     Project?            @relation(fields: [projectId], references: [id])
+
+  lines PurchaseOrderLine[]
+
+  @@index([vendorId])
+  @@index([projectId])
+}
+
+model PurchaseOrderLine {
+  id              String   @id @default(cuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  fabricId        String
+  fabric          Fabric   @relation(fields: [fabricId], references: [id])
+  quantity        Decimal  @db.Decimal(12, 3)
+  metersPerRoll   Decimal? @db.Decimal(10, 3)
+  unitPrice       Decimal  @db.Decimal(12, 2)
+  currency        String   @default("EGP")
+
+  inventoryBatches InventoryBatch[]
+
+  @@index([purchaseOrderId])
+  @@index([fabricId])
+}
+
+// ─── Projects ─────────────────────────────────────────────────────────────────
+
+model Project {
+  id          String        @id @default(cuid())
+  nameEn      String
+  nameAr      String?
+  status      ProjectStatus @default(DRAFT)
+  hotelId     String
+  hotel       Hotel         @relation(fields: [hotelId], references: [id])
+  startDate   DateTime?
+  deliveryDate DateTime?
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  items          ProjectItem[]
+  purchaseOrders PurchaseOrder[]
+
+  @@index([hotelId])
+}
+
+// One line per fabric × item type × location combination
+model ProjectItem {
+  id              String       @id @default(cuid())
+  projectId       String
+  project         Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fabricId        String
+  fabric          Fabric       @relation(fields: [fabricId], references: [id])
+  // e.g. "curtains", "sofa upholstery", "bed sheets"
+  itemTypeEn      String
+  itemTypeAr      String?
+  // e.g. "Suite 301", "Lobby"
+  locationId      String?
+  location        HotelLocation? @relation(fields: [locationId], references: [id])
+  locationNoteEn  String?
+  quantityNeeded  Decimal      @db.Decimal(12, 3)
+  unit            FabricUnit   @default(METERS)
+  source          SupplySource @default(INVENTORY)
+  notes           String?
+
+  usageLines ProjectItemUsage[]
+
+  @@index([projectId])
+  @@index([fabricId])
+  @@index([locationId])
+}
+
+// Tracks exactly which inventory batch was consumed for a project item
+model ProjectItemUsage {
+  id               String         @id @default(cuid())
+  projectItemId    String
+  projectItem      ProjectItem    @relation(fields: [projectItemId], references: [id], onDelete: Cascade)
+  inventoryBatchId String
+  inventoryBatch   InventoryBatch @relation(fields: [inventoryBatchId], references: [id])
+  quantityUsed     Decimal        @db.Decimal(12, 3)
+  usedAt           DateTime       @default(now())
+
+  @@index([projectItemId])
+  @@index([inventoryBatchId])
+}

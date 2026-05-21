@@ -1,0 +1,162 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
+import { Plus, Trash2, Layers } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { EmptyState } from "@/components/ui/empty-state";
+import { AddProjectItemDialog } from "./add-project-item-dialog";
+import { deleteProjectItemAction } from "@/app/[locale]/(dashboard)/projects/[id]/actions";
+import type { ProjectItem, SupplySource } from "@/domain/project";
+import type { FabricSummary } from "@/domain/fabric";
+import type { HotelLocation } from "@/domain/hotel";
+
+type Props = {
+  projectId: string;
+  items: ProjectItem[];
+  fabrics: FabricSummary[];
+  locations: HotelLocation[];
+};
+
+const SOURCE_VARIANT: Record<SupplySource, "default" | "secondary" | "outline"> = {
+  INVENTORY: "default",
+  CLIENT: "secondary",
+  DIRECT: "outline",
+};
+
+export function ProjectItemsTab({ projectId, items, fabrics, locations }: Props) {
+  const t = useTranslations("projects");
+  const tc = useTranslations("common");
+
+  const [addOpen, setAddOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<ProjectItem | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  function handleDelete() {
+    if (!deleteTarget) return;
+    startTransition(async () => {
+      const result = await deleteProjectItemAction(projectId, deleteTarget.id);
+      if (result.success) {
+        toast.success(t("itemDeletedSuccess"));
+      } else {
+        toast.error(result.error);
+      }
+      setDeleteTarget(null);
+    });
+  }
+
+  return (
+    <>
+      <div className="flex justify-end mb-4">
+        <Button size="sm" onClick={() => setAddOpen(true)}>
+          <Plus className="h-4 w-4 me-2" />
+          {t("addItem")}
+        </Button>
+      </div>
+
+      {items.length === 0 ? (
+        <EmptyState
+          icon={Layers}
+          title={t("noItems")}
+          description={t("noItemsDesc")}
+        />
+      ) : (
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t("fabricCode")}</TableHead>
+                <TableHead>{t("fabric")}</TableHead>
+                <TableHead>{t("itemType")}</TableHead>
+                <TableHead>{t("location")}</TableHead>
+                <TableHead className="text-end">{t("quantityNeeded")}</TableHead>
+                <TableHead>{t("sourceLabel")}</TableHead>
+                <TableHead className="text-end">{tc("actions")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {items.map((item) => {
+                const locationLabel = item.location?.nameEn ?? item.locationNoteEn ?? "—";
+                const unitLabel = item.unit === "METERS" ? t("unitMeters") : t("unitRolls");
+                return (
+                  <TableRow key={item.id}>
+                    <TableCell className="font-mono text-sm">{item.fabric.codeRef}</TableCell>
+                    <TableCell>
+                      <div className="font-medium">{item.fabric.nameEn}</div>
+                      {item.fabric.nameAr && (
+                        <div className="text-sm text-muted-foreground" dir="rtl">{item.fabric.nameAr}</div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div>{item.itemTypeEn}</div>
+                      {item.itemTypeAr && (
+                        <div className="text-sm text-muted-foreground" dir="rtl">{item.itemTypeAr}</div>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">{locationLabel}</TableCell>
+                    <TableCell className="text-end font-medium">
+                      {item.quantityNeeded.toLocaleString()} {unitLabel}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={SOURCE_VARIANT[item.source]}>
+                        {t(`source.${item.source}`)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex justify-end">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => setDeleteTarget(item)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      <AddProjectItemDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        projectId={projectId}
+        fabrics={fabrics}
+        locations={locations}
+      />
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("deleteItem")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("deleteItemConfirm")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{tc("cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {tc("delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
