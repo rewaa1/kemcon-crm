@@ -4,14 +4,16 @@ export type SupplySource = "INVENTORY" | "CLIENT" | "DIRECT";
 export type ProjectItem = {
   id: string;
   projectId: string;
-  fabricId: string;
+  fabricId: string | null;
   fabric: {
     id: string;
     codeRef: string;
     nameEn: string;
     nameAr: string | null;
     unit: string;
-  };
+  } | null;
+  customFabricName: string | null;
+  customFabricImageUrl: string | null;
   itemTypeEn: string;
   itemTypeAr: string | null;
   locationId: string | null;
@@ -62,7 +64,9 @@ export type CreateProjectInput = {
 export type UpdateProjectInput = Partial<CreateProjectInput>;
 
 export type AddProjectItemInput = {
-  fabricId: string;
+  fabricId?: string | null;
+  customFabricName?: string;
+  customFabricImageUrl?: string;
   itemTypeEn: string;
   itemTypeAr?: string;
   locationId?: string;
@@ -82,7 +86,7 @@ export type MaterialUsageRow = {
   hotelId: string;
   hotelNameEn: string;
   hotelNameAr: string;
-  fabricId: string;
+  fabricId: string | null;
   fabricCodeRef: string;
   fabricNameEn: string;
   fabricNameAr: string | null;

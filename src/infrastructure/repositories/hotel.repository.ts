@@ -3,6 +3,7 @@ import type {
   IHotelRepository,
   Hotel,
   HotelSummary,
+  HotelSummaryWithLocations,
   HotelLocation,
   HotelContact,
   CreateHotelInput,
@@ -20,6 +21,16 @@ export class HotelRepository implements IHotelRepository {
         _count: { select: { projects: true, contacts: true, locations: true } },
       },
     }) as Promise<HotelSummary[]>;
+  }
+
+  async findAllWithLocations(): Promise<HotelSummaryWithLocations[]> {
+    return prisma.hotel.findMany({
+      orderBy: { nameEn: "asc" },
+      include: {
+        locations: { orderBy: { nameEn: "asc" } },
+        _count: { select: { projects: true, contacts: true, locations: true } },
+      },
+    }) as Promise<HotelSummaryWithLocations[]>;
   }
 
   async findById(id: string): Promise<Hotel | null> {

@@ -30,6 +30,7 @@ export class InventoryRepository implements IInventoryRepository {
         codeRef: fabric.codeRef,
         nameEn: fabric.nameEn,
         nameAr: fabric.nameAr,
+        imageUrl: fabric.imageUrl,
         unit: fabric.unit,
         totalQuantityIn,
         totalQuantityLeft,

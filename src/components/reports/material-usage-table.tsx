@@ -81,8 +81,9 @@ export function MaterialUsageTable({ rows, hotels }: Props) {
     >();
 
     for (const row of filtered) {
-      if (!map.has(row.fabricId)) {
-        map.set(row.fabricId, {
+      const key = row.fabricId ?? `custom:${row.fabricNameEn}`;
+      if (!map.has(key)) {
+        map.set(key, {
           fabricCodeRef: row.fabricCodeRef,
           fabricNameEn: row.fabricNameEn,
           fabricNameAr: row.fabricNameAr,
@@ -91,7 +92,7 @@ export function MaterialUsageTable({ rows, hotels }: Props) {
           projectIds: new Set(),
         });
       }
-      const entry = map.get(row.fabricId)!;
+      const entry = map.get(key)!;
       entry.totalQty = parseFloat((entry.totalQty + row.quantityNeeded).toFixed(3));
       entry.projectIds.add(row.projectId);
     }

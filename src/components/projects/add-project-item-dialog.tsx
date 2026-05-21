@@ -88,7 +88,7 @@ export function AddProjectItemDialog({ open, onOpenChange, projectId, fabrics, l
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>{t("fabric")}</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value ?? undefined}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder={t("selectFabric")} />
@@ -156,7 +156,7 @@ export function AddProjectItemDialog({ open, onOpenChange, projectId, fabrics, l
                 name="source"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t("source")}</FormLabel>
+                    <FormLabel>{t("sourceLabel")}</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>

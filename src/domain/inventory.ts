@@ -38,6 +38,7 @@ export type FabricStockSummary = {
   codeRef: string;
   nameEn: string;
   nameAr: string | null;
+  imageUrl: string | null;
   unit: string;
   totalQuantityIn: number;
   totalQuantityLeft: number;

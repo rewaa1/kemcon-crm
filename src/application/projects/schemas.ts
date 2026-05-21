@@ -18,7 +18,8 @@ export const projectStatusSchema = z.object({
 });
 
 export const projectItemSchema = z.object({
-  fabricId: z.string().min(1, "Fabric is required"),
+  fabricId: z.string().nullish(),
+  customFabricName: z.string().optional(),
   itemTypeEn: z.string().min(1, "Item type is required"),
   itemTypeAr: z.string().optional(),
   locationId: z.string().optional(),
@@ -27,7 +28,10 @@ export const projectItemSchema = z.object({
   unit: z.enum(["METERS", "ROLLS"]),
   source: z.enum(["INVENTORY", "CLIENT", "DIRECT"]),
   notes: z.string().optional(),
-});
+}).refine(
+  (d) => (d.fabricId && d.fabricId.length > 0) || (d.customFabricName && d.customFabricName.trim().length > 0),
+  { message: "Select a fabric or enter a custom fabric name", path: ["customFabricName"] }
+);
 
 export type ProjectFormValues = z.infer<typeof projectSchema>;
 export type UpdateProjectFormValues = z.infer<typeof updateProjectSchema>;

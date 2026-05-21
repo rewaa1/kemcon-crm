@@ -6,6 +6,7 @@ export type Fabric = {
   nameEn: string;
   nameAr: string | null;
   description: string | null;
+  imageUrl: string | null;
   unit: FabricUnit;
   createdAt: Date;
   updatedAt: Date;
@@ -16,6 +17,7 @@ export type FabricSummary = {
   codeRef: string;
   nameEn: string;
   nameAr: string | null;
+  imageUrl: string | null;
   unit: FabricUnit;
   createdAt: Date;
   vendors: Array<{ vendorId: string }>;
@@ -30,6 +32,7 @@ export type CreateFabricInput = {
   nameEn: string;
   nameAr?: string;
   description?: string;
+  imageUrl?: string | null;
   unit: FabricUnit;
   vendorIds?: string[];
 };

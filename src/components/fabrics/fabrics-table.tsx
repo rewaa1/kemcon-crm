@@ -3,7 +3,8 @@
 import { useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { format } from "date-fns";
-import { Package, Plus, Pencil, Trash2 } from "lucide-react";
+import Image from "next/image";
+import { ImageIcon, Package, Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +22,21 @@ import type { FabricSummary } from "@/domain/fabric";
 
 type VendorOption = { id: string; nameEn: string; nameAr: string | null };
 type Props = { fabrics: FabricSummary[]; vendors: VendorOption[] };
+
+function FabricThumbnail({ src }: { src: string | null }) {
+  if (src) {
+    return (
+      <div className="w-10 h-10 rounded-md border overflow-hidden flex-shrink-0">
+        <Image src={src} alt="" width={40} height={40} className="w-full h-full object-cover" />
+      </div>
+    );
+  }
+  return (
+    <div className="w-10 h-10 rounded-md border bg-muted flex items-center justify-center flex-shrink-0">
+      <ImageIcon className="h-4 w-4 text-muted-foreground" />
+    </div>
+  );
+}
 
 export function FabricsTable({ fabrics, vendors }: Props) {
   const t = useTranslations("fabrics");
@@ -75,6 +91,7 @@ export function FabricsTable({ fabrics, vendors }: Props) {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[52px]"></TableHead>
                 <TableHead className="min-w-[80px]">{t("codeRef")}</TableHead>
                 <TableHead className="min-w-[160px]">{t("nameEn")} / {t("nameAr")}</TableHead>
                 <TableHead>{t("unit")}</TableHead>
@@ -87,6 +104,9 @@ export function FabricsTable({ fabrics, vendors }: Props) {
             <TableBody>
               {fabrics.map((fabric) => (
                 <TableRow key={fabric.id} className="hover:bg-muted/50">
+                  <TableCell className="py-2">
+                    <FabricThumbnail src={fabric.imageUrl} />
+                  </TableCell>
                   <TableCell className="font-mono text-sm">{fabric.codeRef}</TableCell>
                   <TableCell>
                     <div className="font-medium">{fabric.nameEn}</div>

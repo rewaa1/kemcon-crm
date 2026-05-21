@@ -17,11 +17,19 @@ import {
 } from "@/components/ui/alert-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ProjectFormDialog } from "./project-form-dialog";
+import { CreateProjectWizard } from "./create-project-wizard";
 import { deleteProjectAction } from "@/app/[locale]/(dashboard)/projects/actions";
 import type { ProjectSummary, ProjectStatus } from "@/domain/project";
-import type { HotelSummary } from "@/domain/hotel";
+import type { HotelSummaryWithLocations } from "@/domain/hotel";
+import type { FabricSummary } from "@/domain/fabric";
+import type { FabricStockSummary } from "@/domain/inventory";
 
-type Props = { projects: ProjectSummary[]; hotels: HotelSummary[] };
+type Props = {
+  projects: ProjectSummary[];
+  hotels: HotelSummaryWithLocations[];
+  fabrics: FabricSummary[];
+  stockSummary: FabricStockSummary[];
+};
 
 const STATUS_VARIANT: Record<ProjectStatus, "default" | "secondary" | "outline"> = {
   DRAFT: "secondary",
@@ -30,12 +38,13 @@ const STATUS_VARIANT: Record<ProjectStatus, "default" | "secondary" | "outline">
   DELIVERED: "default",
 };
 
-export function ProjectsTable({ projects, hotels }: Props) {
+export function ProjectsTable({ projects, hotels, fabrics, stockSummary }: Props) {
   const t = useTranslations("projects");
   const tc = useTranslations("common");
   const locale = useLocale();
   const router = useRouter();
 
+  const [wizardOpen, setWizardOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [editProject, setEditProject] = useState<ProjectSummary | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ProjectSummary | null>(null);
@@ -57,7 +66,7 @@ export function ProjectsTable({ projects, hotels }: Props) {
   return (
     <>
       <div className="flex justify-end mb-4">
-        <Button onClick={() => { setEditProject(null); setFormOpen(true); }}>
+        <Button onClick={() => setWizardOpen(true)}>
           <Plus className="h-4 w-4 me-2" />
           {t("new")}
         </Button>
@@ -69,7 +78,7 @@ export function ProjectsTable({ projects, hotels }: Props) {
           title={t("noProjects")}
           description={t("noProjectsDesc")}
           action={
-            <Button onClick={() => { setEditProject(null); setFormOpen(true); }}>
+            <Button onClick={() => setWizardOpen(true)}>
               <Plus className="h-4 w-4 me-2" />
               {t("new")}
             </Button>
@@ -154,6 +163,14 @@ export function ProjectsTable({ projects, hotels }: Props) {
           </Table>
         </div>
       )}
+
+      <CreateProjectWizard
+        open={wizardOpen}
+        onOpenChange={setWizardOpen}
+        hotels={hotels}
+        fabrics={fabrics}
+        stockSummary={stockSummary}
+      />
 
       <ProjectFormDialog
         open={formOpen}

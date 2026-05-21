@@ -115,7 +115,9 @@ export class ProjectRepository implements IProjectRepository {
       const item = await tx.projectItem.create({
         data: {
           projectId,
-          fabricId: data.fabricId,
+          fabricId: data.fabricId || undefined,
+          customFabricName: data.customFabricName || undefined,
+          customFabricImageUrl: data.customFabricImageUrl || null,
           itemTypeEn: data.itemTypeEn,
           itemTypeAr: data.itemTypeAr ?? null,
           locationId: data.locationId || null,
@@ -128,7 +130,7 @@ export class ProjectRepository implements IProjectRepository {
         include: itemInclude,
       });
 
-      if (data.source === "INVENTORY") {
+      if (data.source === "INVENTORY" && data.fabricId) {
         const batches = await tx.inventoryBatch.findMany({
           where: { fabricId: data.fabricId, quantityLeft: { gt: 0 } },
           orderBy: { receivedAt: "asc" },
@@ -211,11 +213,11 @@ export class ProjectRepository implements IProjectRepository {
       hotelId: item.project.hotel.id,
       hotelNameEn: item.project.hotel.nameEn,
       hotelNameAr: item.project.hotel.nameAr,
-      fabricId: item.fabric.id,
-      fabricCodeRef: item.fabric.codeRef,
-      fabricNameEn: item.fabric.nameEn,
-      fabricNameAr: item.fabric.nameAr ?? null,
-      fabricUnit: item.fabric.unit,
+      fabricId: item.fabric?.id ?? null,
+      fabricCodeRef: item.fabric?.codeRef ?? "—",
+      fabricNameEn: item.fabric?.nameEn ?? (item.customFabricName || "Custom"),
+      fabricNameAr: item.fabric?.nameAr ?? null,
+      fabricUnit: item.fabric?.unit ?? item.unit,
       itemTypeEn: item.itemTypeEn,
       itemTypeAr: item.itemTypeAr,
       quantityNeeded: Number(item.quantityNeeded),

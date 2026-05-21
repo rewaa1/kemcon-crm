@@ -20,6 +20,10 @@ export type HotelSummary = {
   };
 };
 
+export type HotelSummaryWithLocations = HotelSummary & {
+  locations: HotelLocation[];
+};
+
 export type HotelLocation = {
   id: string;
   nameEn: string;
@@ -67,6 +71,7 @@ export type UpdateContactInput = Partial<Omit<CreateContactInput, "hotelId">>;
 
 export interface IHotelRepository {
   findAll(): Promise<HotelSummary[]>;
+  findAllWithLocations(): Promise<HotelSummaryWithLocations[]>;
   findById(id: string): Promise<Hotel | null>;
   create(data: CreateHotelInput): Promise<Hotel>;
   update(id: string, data: UpdateHotelInput): Promise<Hotel>;

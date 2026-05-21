@@ -7,10 +7,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProjectRepository } from "@/infrastructure/repositories/project.repository";
 import { HotelRepository } from "@/infrastructure/repositories/hotel.repository";
 import { FabricRepository } from "@/infrastructure/repositories/fabric.repository";
+import { InventoryRepository } from "@/infrastructure/repositories/inventory.repository";
 import { getProjectById } from "@/application/projects/queries/get-project-by-id";
 import { getHotelById } from "@/application/hotels/queries/get-hotel-by-id";
 import { getFabrics } from "@/application/fabrics/queries/get-fabrics";
 import { getHotels } from "@/application/hotels/queries/get-hotels";
+import { getStockSummary } from "@/application/inventory/queries/get-stock-summary";
 import { ProjectNotFoundError } from "@/domain/errors";
 import { ProjectDetailHeader } from "@/components/projects/project-detail-header";
 import { ProjectItemsTab } from "@/components/projects/project-items-tab";
@@ -18,6 +20,7 @@ import { ProjectItemsTab } from "@/components/projects/project-items-tab";
 const repo = new ProjectRepository();
 const hotelRepo = new HotelRepository();
 const fabricRepo = new FabricRepository();
+const inventoryRepo = new InventoryRepository();
 
 export default async function ProjectDetailPage({
   params,
@@ -34,9 +37,10 @@ export default async function ProjectDetailPage({
     throw e;
   }
 
-  const [hotel, fabrics, hotels, t] = await Promise.all([
+  const [hotel, fabrics, stockSummary, hotels, t] = await Promise.all([
     getHotelById(hotelRepo, project.hotelId),
     getFabrics(fabricRepo),
+    getStockSummary(inventoryRepo),
     getHotels(hotelRepo),
     getTranslations("projects"),
   ]);
@@ -66,6 +70,7 @@ export default async function ProjectDetailPage({
             projectId={project.id}
             items={project.items}
             fabrics={fabrics}
+            stockSummary={stockSummary}
             locations={locations}
           />
         </TabsContent>

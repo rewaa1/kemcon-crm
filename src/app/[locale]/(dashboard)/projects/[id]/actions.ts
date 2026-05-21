@@ -14,6 +14,8 @@ const repo = new ProjectRepository();
 function revalidate(id: string) {
   revalidatePath(`/en/projects/${id}`);
   revalidatePath(`/ar/projects/${id}`);
+  revalidatePath("/en/projects");
+  revalidatePath("/ar/projects");
   revalidatePath("/en/inventory");
   revalidatePath("/ar/inventory");
 }
@@ -34,11 +36,11 @@ export async function updateProjectStatusAction(
 export async function addProjectItemAction(
   projectId: string,
   input: AddProjectItemInput
-): Promise<ActionResult> {
+): Promise<ActionResult & { data?: { id: string } }> {
   try {
-    await addProjectItem(repo, projectId, input);
+    const item = await addProjectItem(repo, projectId, input);
     revalidate(projectId);
-    return { success: true };
+    return { success: true, data: { id: item.id } };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Failed to add item" };
   }

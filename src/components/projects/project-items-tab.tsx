@@ -14,16 +14,18 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
-import { AddProjectItemDialog } from "./add-project-item-dialog";
+import { AddItemWizard } from "./add-item-wizard";
 import { deleteProjectItemAction } from "@/app/[locale]/(dashboard)/projects/[id]/actions";
 import type { ProjectItem, SupplySource } from "@/domain/project";
 import type { FabricSummary } from "@/domain/fabric";
+import type { FabricStockSummary } from "@/domain/inventory";
 import type { HotelLocation } from "@/domain/hotel";
 
 type Props = {
   projectId: string;
   items: ProjectItem[];
   fabrics: FabricSummary[];
+  stockSummary: FabricStockSummary[];
   locations: HotelLocation[];
 };
 
@@ -33,7 +35,7 @@ const SOURCE_VARIANT: Record<SupplySource, "default" | "secondary" | "outline"> 
   DIRECT: "outline",
 };
 
-export function ProjectItemsTab({ projectId, items, fabrics, locations }: Props) {
+export function ProjectItemsTab({ projectId, items, fabrics, stockSummary, locations }: Props) {
   const t = useTranslations("projects");
   const tc = useTranslations("common");
 
@@ -89,10 +91,10 @@ export function ProjectItemsTab({ projectId, items, fabrics, locations }: Props)
                 const unitLabel = item.unit === "METERS" ? t("unitMeters") : t("unitRolls");
                 return (
                   <TableRow key={item.id}>
-                    <TableCell className="font-mono text-sm">{item.fabric.codeRef}</TableCell>
+                    <TableCell className="font-mono text-sm">{item.fabric?.codeRef ?? "—"}</TableCell>
                     <TableCell>
-                      <div className="font-medium">{item.fabric.nameEn}</div>
-                      {item.fabric.nameAr && (
+                      <div className="font-medium">{item.fabric?.nameEn ?? item.customFabricName ?? "—"}</div>
+                      {item.fabric?.nameAr && (
                         <div className="text-sm text-muted-foreground" dir="rtl">{item.fabric.nameAr}</div>
                       )}
                     </TableCell>
@@ -131,11 +133,12 @@ export function ProjectItemsTab({ projectId, items, fabrics, locations }: Props)
         </div>
       )}
 
-      <AddProjectItemDialog
+      <AddItemWizard
         open={addOpen}
         onOpenChange={setAddOpen}
         projectId={projectId}
         fabrics={fabrics}
+        stockSummary={stockSummary}
         locations={locations}
       />
 
