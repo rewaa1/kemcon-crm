@@ -3,18 +3,19 @@ import type { IDashboardRepository, DashboardStats } from "@/domain/dashboard";
 
 export class DashboardRepository implements IDashboardRepository {
   async getStats(): Promise<DashboardStats> {
-    const [projectGroups, fabricsWithBatches, recentPOs] = await Promise.all([
+    const fabricsPromise = prisma.fabric.findMany({
+      select: {
+        id: true,
+        codeRef: true,
+        nameEn: true,
+        nameAr: true,
+        unit: true,
+        inventoryBatches: { select: { quantityIn: true, quantityLeft: true } },
+      },
+    });
+
+    const [projectGroups, recentPOs] = await Promise.all([
       prisma.project.groupBy({ by: ["status"], _count: { _all: true } }),
-      prisma.fabric.findMany({
-        select: {
-          id: true,
-          codeRef: true,
-          nameEn: true,
-          nameAr: true,
-          unit: true,
-          inventoryBatches: { select: { quantityIn: true, quantityLeft: true } },
-        },
-      }),
       prisma.purchaseOrder.findMany({
         take: 5,
         orderBy: { createdAt: "desc" },
@@ -27,6 +28,8 @@ export class DashboardRepository implements IDashboardRepository {
         },
       }),
     ]);
+
+    const fabricsWithBatches = await fabricsPromise;
 
     const projectCounts = { draft: 0, confirmed: 0, inProduction: 0, delivered: 0 };
     for (const g of projectGroups) {
