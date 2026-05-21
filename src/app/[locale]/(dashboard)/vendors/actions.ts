@@ -6,6 +6,7 @@ import { createVendor } from "@/application/vendors/commands/create-vendor";
 import { updateVendor } from "@/application/vendors/commands/update-vendor";
 import { deleteVendor } from "@/application/vendors/commands/delete-vendor";
 import type { CreateVendorInput, UpdateVendorInput } from "@/domain/vendor";
+import { requireUser } from "@/lib/supabase/server";
 
 type ActionResult = { success: true } | { success: false; error: string };
 
@@ -18,6 +19,7 @@ function revalidate() {
 
 export async function createVendorAction(input: CreateVendorInput): Promise<ActionResult> {
   try {
+    await requireUser();
     await createVendor(repo, input);
     revalidate();
     return { success: true };
@@ -28,6 +30,7 @@ export async function createVendorAction(input: CreateVendorInput): Promise<Acti
 
 export async function updateVendorAction(id: string, input: UpdateVendorInput): Promise<ActionResult> {
   try {
+    await requireUser();
     await updateVendor(repo, id, input);
     revalidate();
     return { success: true };
@@ -38,6 +41,7 @@ export async function updateVendorAction(id: string, input: UpdateVendorInput): 
 
 export async function deleteVendorAction(id: string): Promise<ActionResult> {
   try {
+    await requireUser();
     await deleteVendor(repo, id);
     revalidate();
     return { success: true };

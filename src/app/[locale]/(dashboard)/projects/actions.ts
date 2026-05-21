@@ -6,6 +6,7 @@ import { createProject } from "@/application/projects/commands/create-project";
 import { updateProject } from "@/application/projects/commands/update-project";
 import { deleteProject } from "@/application/projects/commands/delete-project";
 import type { CreateProjectInput, UpdateProjectInput } from "@/domain/project";
+import { requireUser } from "@/lib/supabase/server";
 
 type ActionResult = { success: true } | { success: false; error: string };
 
@@ -24,6 +25,7 @@ export async function createProjectAction(
   input: CreateProjectInput
 ): Promise<ActionResult & { data?: { id: string } }> {
   try {
+    await requireUser();
     const project = await createProject(repo, input);
     revalidate();
     return { success: true, data: { id: project.id } };
@@ -37,6 +39,7 @@ export async function updateProjectAction(
   input: UpdateProjectInput
 ): Promise<ActionResult> {
   try {
+    await requireUser();
     await updateProject(repo, id, input);
     revalidate(id);
     return { success: true };
@@ -47,6 +50,7 @@ export async function updateProjectAction(
 
 export async function deleteProjectAction(id: string): Promise<ActionResult> {
   try {
+    await requireUser();
     await deleteProject(repo, id);
     revalidate();
     return { success: true };

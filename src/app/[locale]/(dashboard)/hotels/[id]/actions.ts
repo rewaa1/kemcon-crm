@@ -8,6 +8,7 @@ import { addContact } from "@/application/hotels/commands/add-contact";
 import { updateContact } from "@/application/hotels/commands/update-contact";
 import { deleteContact } from "@/application/hotels/commands/delete-contact";
 import type { CreateLocationInput, CreateContactInput, UpdateContactInput } from "@/domain/hotel";
+import { requireUser } from "@/lib/supabase/server";
 
 type ActionResult = { success: true } | { success: false; error: string };
 
@@ -23,6 +24,7 @@ export async function addLocationAction(
   input: Omit<CreateLocationInput, "hotelId">
 ): Promise<ActionResult> {
   try {
+    await requireUser();
     await addLocation(repo, { hotelId, ...input });
     revalidate(hotelId);
     return { success: true };
@@ -33,6 +35,7 @@ export async function addLocationAction(
 
 export async function deleteLocationAction(hotelId: string, locationId: string): Promise<ActionResult> {
   try {
+    await requireUser();
     await deleteLocation(repo, locationId);
     revalidate(hotelId);
     return { success: true };
@@ -46,6 +49,7 @@ export async function addContactAction(
   input: Omit<CreateContactInput, "hotelId">
 ): Promise<ActionResult> {
   try {
+    await requireUser();
     await addContact(repo, { hotelId, ...input });
     revalidate(hotelId);
     return { success: true };
@@ -60,6 +64,7 @@ export async function updateContactAction(
   input: UpdateContactInput
 ): Promise<ActionResult> {
   try {
+    await requireUser();
     await updateContact(repo, contactId, input);
     revalidate(hotelId);
     return { success: true };
@@ -70,6 +75,7 @@ export async function updateContactAction(
 
 export async function deleteContactAction(hotelId: string, contactId: string): Promise<ActionResult> {
   try {
+    await requireUser();
     await deleteContact(repo, contactId);
     revalidate(hotelId);
     return { success: true };

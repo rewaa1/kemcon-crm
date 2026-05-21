@@ -6,6 +6,7 @@ import { createFabric } from "@/application/fabrics/commands/create-fabric";
 import { updateFabric } from "@/application/fabrics/commands/update-fabric";
 import { deleteFabric } from "@/application/fabrics/commands/delete-fabric";
 import type { CreateFabricInput, UpdateFabricInput } from "@/domain/fabric";
+import { requireUser } from "@/lib/supabase/server";
 
 type ActionResult = { success: true } | { success: false; error: string };
 
@@ -18,6 +19,7 @@ function revalidate() {
 
 export async function createFabricAction(input: CreateFabricInput): Promise<ActionResult> {
   try {
+    await requireUser();
     await createFabric(repo, input);
     revalidate();
     return { success: true };
@@ -28,6 +30,7 @@ export async function createFabricAction(input: CreateFabricInput): Promise<Acti
 
 export async function updateFabricAction(id: string, input: UpdateFabricInput): Promise<ActionResult> {
   try {
+    await requireUser();
     await updateFabric(repo, id, input);
     revalidate();
     return { success: true };
@@ -38,6 +41,7 @@ export async function updateFabricAction(id: string, input: UpdateFabricInput): 
 
 export async function deleteFabricAction(id: string): Promise<ActionResult> {
   try {
+    await requireUser();
     await deleteFabric(repo, id);
     revalidate();
     return { success: true };

@@ -1,6 +1,13 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
+export async function requireUser() {
+  const supabase = await createClient();
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (!user || error) throw new Error("Unauthorized");
+  return user;
+}
+
 export async function createClient() {
   const cookieStore = await cookies();
 

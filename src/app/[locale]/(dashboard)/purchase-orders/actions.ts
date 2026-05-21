@@ -6,6 +6,7 @@ import { createPurchaseOrder } from "@/application/purchase-orders/commands/crea
 import { deletePurchaseOrder } from "@/application/purchase-orders/commands/delete-purchase-order";
 import { receivePurchaseOrder } from "@/application/purchase-orders/commands/receive-order";
 import type { CreatePurchaseOrderInput } from "@/domain/purchase-order";
+import { requireUser } from "@/lib/supabase/server";
 
 type ActionResult<T = undefined> =
   | { success: true; data?: T }
@@ -22,6 +23,7 @@ export async function createPurchaseOrderAction(
   input: CreatePurchaseOrderInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
+    await requireUser();
     const order = await createPurchaseOrder(repo, input);
     revalidate();
     return { success: true, data: { id: order.id } };
@@ -32,6 +34,7 @@ export async function createPurchaseOrderAction(
 
 export async function receivePurchaseOrderAction(id: string): Promise<ActionResult> {
   try {
+    await requireUser();
     await receivePurchaseOrder(repo, id);
     revalidate();
     return { success: true };
@@ -42,6 +45,7 @@ export async function receivePurchaseOrderAction(id: string): Promise<ActionResu
 
 export async function deletePurchaseOrderAction(id: string): Promise<ActionResult> {
   try {
+    await requireUser();
     await deletePurchaseOrder(repo, id);
     revalidate();
     return { success: true };
