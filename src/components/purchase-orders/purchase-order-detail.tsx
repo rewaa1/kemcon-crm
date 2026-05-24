@@ -8,16 +8,10 @@ import {
 } from "@/components/ui/table";
 import { DeletePOButton } from "./delete-po-button";
 import { ReceivePOButton } from "./receive-po-button";
-import type { PurchaseOrder, PurchaseOrderStatus } from "@/domain/purchase-order";
+import type { PurchaseOrder } from "@/domain/purchase-order";
+import { PO_STATUS_VARIANT } from "@/lib/status-variants";
 
 type Props = { order: PurchaseOrder; locale: string };
-
-const STATUS_VARIANT: Record<PurchaseOrderStatus, "default" | "secondary" | "outline" | "destructive"> = {
-  PENDING: "secondary",
-  RECEIVED: "default",
-  PARTIAL: "outline",
-  CANCELLED: "destructive",
-};
 
 export function PurchaseOrderDetail({ order, locale }: Props) {
   const t = useTranslations("purchaseOrders");
@@ -29,7 +23,7 @@ export function PurchaseOrderDetail({ order, locale }: Props) {
       <div className="rounded-lg border p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-lg">{t("details")}</h2>
-          <Badge variant={STATUS_VARIANT[order.status]}>{t(`status.${order.status}`)}</Badge>
+          <Badge variant={PO_STATUS_VARIANT[order.status]}>{t(`status.${order.status}`)}</Badge>
         </div>
         <div className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
           <div>
@@ -113,7 +107,7 @@ export function PurchaseOrderDetail({ order, locale }: Props) {
       {order.status === "PENDING" && (
         <div className="flex justify-end gap-2">
           <ReceivePOButton id={order.id} />
-          <DeletePOButton id={order.id} locale={locale} />
+          <DeletePOButton id={order.id} locale={locale} poNumber={order.poNumber} />
         </div>
       )}
     </div>

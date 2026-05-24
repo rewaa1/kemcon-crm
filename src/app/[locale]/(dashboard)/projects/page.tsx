@@ -1,27 +1,35 @@
 import { getTranslations } from "next-intl/server";
 import { ProjectRepository } from "@/infrastructure/repositories/project.repository";
 import { HotelRepository } from "@/infrastructure/repositories/hotel.repository";
-import { FabricRepository } from "@/infrastructure/repositories/fabric.repository";
-import { InventoryRepository } from "@/infrastructure/repositories/inventory.repository";
 import { getProjects } from "@/application/projects/queries/get-projects";
-import { getFabrics } from "@/application/fabrics/queries/get-fabrics";
-import { getStockSummary } from "@/application/inventory/queries/get-stock-summary";
+import { getHotels } from "@/application/hotels/queries/get-hotels";
 import { ProjectsTable } from "@/components/projects/projects-table";
 import { PageHeader } from "@/components/ui/page-header";
+import type { ProjectStatus } from "@/domain/project";
 
 const repo = new ProjectRepository();
 const hotelRepo = new HotelRepository();
-const fabricRepo = new FabricRepository();
-const inventoryRepo = new InventoryRepository();
 
-export default async function ProjectsPage() {
-  const [projects, hotels, fabrics, stockSummary, t] = await Promise.all([
+const VALID_STATUSES: ProjectStatus[] = ["DRAFT", "CONFIRMED", "IN_PRODUCTION", "DELIVERED"];
+
+export default async function ProjectsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string; overdue?: string }>;
+}) {
+  const [projects, hotels, t, params] = await Promise.all([
     getProjects(repo),
-    hotelRepo.findAllWithLocations(),
-    getFabrics(fabricRepo),
-    getStockSummary(inventoryRepo),
+    getHotels(hotelRepo),
     getTranslations("projects"),
+    searchParams,
   ]);
+
+  const rawStatus = params.status;
+  const initialStatus = rawStatus && VALID_STATUSES.includes(rawStatus as ProjectStatus)
+    ? (rawStatus as ProjectStatus)
+    : undefined;
+
+  const initialDeliveryFilter = params.overdue === "true" ? "overdue" as const : undefined;
 
   return (
     <div className="space-y-6">
@@ -29,8 +37,8 @@ export default async function ProjectsPage() {
       <ProjectsTable
         projects={projects}
         hotels={hotels}
-        fabrics={fabrics}
-        stockSummary={stockSummary}
+        initialStatus={initialStatus}
+        initialDeliveryFilter={initialDeliveryFilter}
       />
     </div>
   );

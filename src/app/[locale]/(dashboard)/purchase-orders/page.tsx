@@ -11,11 +11,19 @@ const repo = new PurchaseOrderRepository();
 
 export default async function PurchaseOrdersPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>;
+  searchParams: Promise<{ dueToday?: string }>;
 }) {
-  const { locale } = await params;
-  const [orders, t] = await Promise.all([getPurchaseOrders(repo), getTranslations("purchaseOrders")]);
+  const [{ locale }, sp, orders, t] = await Promise.all([
+    params,
+    searchParams,
+    getPurchaseOrders(repo),
+    getTranslations("purchaseOrders"),
+  ]);
+
+  const initialDueToday = sp.dueToday === "true";
 
   return (
     <div className="space-y-6">
@@ -31,7 +39,7 @@ export default async function PurchaseOrdersPage({
           </Button>
         }
       />
-      <PurchaseOrdersTable orders={orders} locale={locale} />
+      <PurchaseOrdersTable orders={orders} locale={locale} initialDueToday={initialDueToday} />
     </div>
   );
 }

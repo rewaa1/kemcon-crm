@@ -1,10 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import Link from "next/link";
+import { useState, useMemo, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
+
 import { format } from "date-fns";
-import { Building2, Plus, Eye, Pencil, Trash2 } from "lucide-react";
+import { Building2, Plus, Pencil, Trash2 } from "lucide-react";
+import { useTableSort } from "@/lib/use-table-sort";
+import { SortableHead } from "@/components/ui/sortable-head";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +19,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { HotelFormDialog } from "./hotel-form-dialog";
 import { deleteHotelAction } from "@/app/[locale]/(dashboard)/hotels/actions";
 import type { HotelSummary } from "@/domain/hotel";
@@ -27,6 +31,24 @@ export function HotelsTable({ hotels }: Props) {
   const tc = useTranslations("common");
   const locale = useLocale();
 
+  const router = useRouter();
+  const PAGE_SIZE = 25;
+  const [page, setPage] = useState(1);
+
+  type HotelSortKey = "nameEn" | "locations" | "contacts" | "projects" | "createdAt";
+  const { sorted: sortedHotels, sort, toggle } = useTableSort<HotelSummary, HotelSortKey>(
+    hotels,
+    (h, key) => {
+      if (key === "nameEn") return h.nameEn;
+      if (key === "locations") return h._count.locations;
+      if (key === "contacts") return h._count.contacts;
+      if (key === "projects") return h._count.projects;
+      if (key === "createdAt") return new Date(h.createdAt);
+      return null;
+    }
+  );
+
+  const paginated = useMemo(() => sortedHotels.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [sortedHotels, page]);
   const [formOpen, setFormOpen] = useState(false);
   const [editHotel, setEditHotel] = useState<HotelSummary | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<HotelSummary | null>(null);
@@ -76,17 +98,21 @@ export function HotelsTable({ hotels }: Props) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="min-w-[160px]">{t("nameEn")} / {t("nameAr")}</TableHead>
-                <TableHead className="text-center">{t("locations")}</TableHead>
-                <TableHead className="text-center">{t("contacts")}</TableHead>
-                <TableHead className="text-center">{t("projects")}</TableHead>
-                <TableHead className="min-w-[110px]">{t("created")}</TableHead>
+                <SortableHead sortKey="nameEn" sort={sort} onToggle={toggle} className="min-w-[160px]">{t("nameEn")} / {t("nameAr")}</SortableHead>
+                <SortableHead sortKey="locations" sort={sort} onToggle={toggle} className="text-center">{t("locations")}</SortableHead>
+                <SortableHead sortKey="contacts" sort={sort} onToggle={toggle} className="text-center">{t("contacts")}</SortableHead>
+                <SortableHead sortKey="projects" sort={sort} onToggle={toggle} className="text-center">{t("projects")}</SortableHead>
+                <SortableHead sortKey="createdAt" sort={sort} onToggle={toggle} className="min-w-[110px]">{t("created")}</SortableHead>
                 <TableHead className="text-end">{tc("actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {hotels.map((hotel) => (
-                <TableRow key={hotel.id} className="hover:bg-muted/50">
+              {paginated.map((hotel) => (
+                <TableRow
+                key={hotel.id}
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => router.push(`/${locale}/hotels/${hotel.id}`)}
+              >
                   <TableCell>
                     <div className="font-medium">{hotel.nameEn}</div>
                     <div className="text-sm text-muted-foreground" dir="rtl">{hotel.nameAr}</div>
@@ -105,19 +131,15 @@ export function HotelsTable({ hotels }: Props) {
                   <TableCell className="text-sm text-muted-foreground">
                     {format(new Date(hotel.createdAt), "dd MMM yyyy")}
                   </TableCell>
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1">
-                      <Button variant="ghost" size="icon" asChild>
-                        <Link href={`/${locale}/hotels/${hotel.id}`}>
-                          <Eye className="h-4 w-4" />
-                        </Link>
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleEdit(hotel)}>
+                      <Button variant="ghost" size="icon" aria-label={`Edit ${hotel.nameEn}`} onClick={() => handleEdit(hotel)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
+                        aria-label={`Delete ${hotel.nameEn}`}
                         className="text-destructive hover:text-destructive"
                         onClick={() => setDeleteTarget(hotel)}
                       >
@@ -129,6 +151,7 @@ export function HotelsTable({ hotels }: Props) {
               ))}
             </TableBody>
           </Table>
+          <TablePagination page={page} pageSize={PAGE_SIZE} total={sortedHotels.length} onPageChange={setPage} />
         </div>
       )}
 
@@ -141,7 +164,7 @@ export function HotelsTable({ hotels }: Props) {
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("delete")}</AlertDialogTitle>
+            <AlertDialogTitle>{t("delete")} &ldquo;{deleteTarget?.nameEn}&rdquo;?</AlertDialogTitle>
             <AlertDialogDescription>{t("deleteConfirm")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

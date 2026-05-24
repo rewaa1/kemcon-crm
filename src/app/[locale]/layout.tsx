@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { routing } from "@/i18n/routing";
 import { QueryProvider } from "@/providers/query-provider";
 import { Toaster } from "@/components/ui/sonner";
+import NextTopLoader from "nextjs-toploader";
 
 export default async function LocaleLayout({
   children,
@@ -24,6 +25,7 @@ export default async function LocaleLayout({
   return (
     <NextIntlClientProvider messages={messages}>
       <QueryProvider>
+        <NextTopLoader showSpinner={false} color="hsl(var(--primary))" />
         <div lang={locale} dir={dir}>
           {children}
           <Toaster richColors position="top-right" />

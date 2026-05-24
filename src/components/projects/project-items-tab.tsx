@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
-import { Plus, Trash2, Layers } from "lucide-react";
+import { Plus, Pencil, Trash2, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { AddItemWizard } from "./add-item-wizard";
+import { EditProjectItemDialog } from "./edit-project-item-dialog";
 import { deleteProjectItemAction } from "@/app/[locale]/(dashboard)/projects/[id]/actions";
 import type { ProjectItem, SupplySource } from "@/domain/project";
 import type { FabricSummary } from "@/domain/fabric";
@@ -40,6 +41,7 @@ export function ProjectItemsTab({ projectId, items, fabrics, stockSummary, locat
   const tc = useTranslations("common");
 
   const [addOpen, setAddOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<ProjectItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ProjectItem | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -114,10 +116,19 @@ export function ProjectItemsTab({ projectId, items, fabrics, stockSummary, locat
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="flex justify-end">
+                      <div className="flex justify-end gap-1">
                         <Button
                           variant="ghost"
                           size="icon"
+                          aria-label={`Edit ${item.fabric?.nameEn ?? item.customFabricName ?? "item"}`}
+                          onClick={() => setEditTarget(item)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Delete ${item.fabric?.nameEn ?? item.customFabricName ?? "item"}`}
                           className="text-destructive hover:text-destructive"
                           onClick={() => setDeleteTarget(item)}
                         >
@@ -141,6 +152,16 @@ export function ProjectItemsTab({ projectId, items, fabrics, stockSummary, locat
         stockSummary={stockSummary}
         locations={locations}
       />
+
+      {editTarget && (
+        <EditProjectItemDialog
+          open={!!editTarget}
+          onOpenChange={(o) => { if (!o) setEditTarget(null); }}
+          projectId={projectId}
+          item={editTarget}
+          locations={locations}
+        />
+      )}
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <AlertDialogContent>

@@ -4,7 +4,9 @@ export type DashboardStats = {
     confirmed: number;
     inProduction: number;
     delivered: number;
+    overdue: number;
   };
+  pendingPOsToday: number;
   lowStockFabrics: {
     fabricId: string;
     codeRef: string;

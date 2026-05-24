@@ -15,11 +15,13 @@ import {
   SheetContent,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Globe, LogOut, Menu } from "lucide-react";
+import { Globe, LogOut, Menu, Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { SidebarContent } from "./sidebar";
 
-export function Header() {
+type SidebarBadges = { pendingPOs: number; lowStockCount: number };
+
+export function Header({ badges }: { badges?: SidebarBadges }) {
   const locale = useLocale();
   const t = useTranslations("auth");
   const router = useRouter();
@@ -46,6 +48,20 @@ export function Header() {
       >
         <Menu className="h-5 w-5" />
       </Button>
+
+      {/* Cmd+K search trigger (desktop) */}
+      <button
+        type="button"
+        onClick={() => document.dispatchEvent(new CustomEvent("open-command-menu"))}
+        className="hidden md:flex items-center gap-2 text-sm text-muted-foreground border rounded-md px-3 py-1.5 hover:bg-accent transition-colors ms-4 flex-1 max-w-xs"
+        aria-label="Open command menu"
+      >
+        <Search className="h-3.5 w-3.5 shrink-0" />
+        <span className="flex-1 text-start">Search...</span>
+        <kbd className="hidden lg:inline-flex items-center gap-0.5 text-[10px] font-mono bg-muted rounded px-1 py-0.5">
+          <span>⌘</span><span>K</span>
+        </kbd>
+      </button>
 
       <div className="flex-1 md:hidden" />
 
@@ -76,7 +92,7 @@ export function Header() {
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent side="left" className="p-0 w-64 flex flex-col">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
-          <SidebarContent onNavClick={() => setMobileOpen(false)} />
+          <SidebarContent onNavClick={() => setMobileOpen(false)} badges={badges} />
         </SheetContent>
       </Sheet>
     </header>

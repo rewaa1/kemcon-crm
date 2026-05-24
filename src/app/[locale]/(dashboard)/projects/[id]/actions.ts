@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache";
 import { ProjectRepository } from "@/infrastructure/repositories/project.repository";
 import { updateProjectStatus } from "@/application/projects/commands/update-project-status";
 import { addProjectItem } from "@/application/projects/commands/add-project-item";
+import { updateProjectItem } from "@/application/projects/commands/update-project-item";
 import { deleteProjectItem } from "@/application/projects/commands/delete-project-item";
-import type { ProjectStatus, AddProjectItemInput } from "@/domain/project";
+import type { ProjectStatus, AddProjectItemInput, UpdateProjectItemInput } from "@/domain/project";
 import { requireUser } from "@/lib/supabase/server";
 
 type ActionResult = { success: true } | { success: false; error: string };
@@ -46,6 +47,21 @@ export async function addProjectItemAction(
     return { success: true, data: { id: item.id } };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Failed to add item" };
+  }
+}
+
+export async function updateProjectItemAction(
+  projectId: string,
+  itemId: string,
+  input: UpdateProjectItemInput
+): Promise<ActionResult> {
+  try {
+    await requireUser();
+    await updateProjectItem(repo, itemId, input);
+    revalidate(projectId);
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : "Failed to update item" };
   }
 }
 

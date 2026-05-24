@@ -27,20 +27,14 @@ import {
   AlertTriangle,
   ShoppingCart,
   Package,
+  Clock,
+  Hammer,
+  CalendarClock,
 } from "lucide-react";
 import type { PurchaseOrderStatus } from "@/domain/purchase-order";
+import { PO_STATUS_VARIANT } from "@/lib/status-variants";
 
 const dashboardRepo = new DashboardRepository();
-
-const PO_STATUS_VARIANT: Record<
-  PurchaseOrderStatus,
-  "default" | "secondary" | "outline" | "destructive"
-> = {
-  PENDING: "secondary",
-  RECEIVED: "default",
-  PARTIAL: "outline",
-  CANCELLED: "destructive",
-};
 
 export default async function DashboardPage() {
   const [stats, t, tpo] = await Promise.all([
@@ -50,68 +44,121 @@ export default async function DashboardPage() {
   ]);
   const locale = await getLocale();
 
-  const { projectCounts, lowStockFabrics, recentPOs } = stats;
-  const activeCount = projectCounts.confirmed + projectCounts.inProduction;
+  const { projectCounts, pendingPOsToday, lowStockFabrics, recentPOs } = stats;
 
   return (
     <div className="space-y-6">
       <PageHeader title={t("title")} description={t("description")} />
 
-      {/* Stat cards */}
+      {/* Stat cards — row 1: project status breakdown */}
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("activeProjects")}</CardTitle>
-            <FolderKanban className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{activeCount}</div>
-            <p className="text-xs text-muted-foreground mt-1">{t("activeProjectsDesc")}</p>
-          </CardContent>
-        </Card>
+        <Link href={`/${locale}/projects?status=CONFIRMED`} className="block group">
+          <Card className="transition-colors group-hover:border-primary/50">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{t("confirmedProjects")}</CardTitle>
+              <FolderKanban className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{projectCounts.confirmed}</div>
+              <p className="text-xs text-muted-foreground mt-1">{t("confirmedProjectsDesc")}</p>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("draftProjects")}</CardTitle>
-            <FileEdit className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{projectCounts.draft}</div>
-            <p className="text-xs text-muted-foreground mt-1">{t("draftProjectsDesc")}</p>
-          </CardContent>
-        </Card>
+        <Link href={`/${locale}/projects?status=IN_PRODUCTION`} className="block group">
+          <Card className="transition-colors group-hover:border-primary/50">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{t("inProductionProjects")}</CardTitle>
+              <Hammer className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{projectCounts.inProduction}</div>
+              <p className="text-xs text-muted-foreground mt-1">{t("inProductionProjectsDesc")}</p>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("deliveredProjects")}</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{projectCounts.delivered}</div>
-            <p className="text-xs text-muted-foreground mt-1">{t("deliveredProjectsDesc")}</p>
-          </CardContent>
-        </Card>
+        <Link href={`/${locale}/projects?status=DRAFT`} className="block group">
+          <Card className="transition-colors group-hover:border-primary/50">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{t("draftProjects")}</CardTitle>
+              <FileEdit className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{projectCounts.draft}</div>
+              <p className="text-xs text-muted-foreground mt-1">{t("draftProjectsDesc")}</p>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card className={lowStockFabrics.length > 0 ? "border-destructive/50" : ""}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("lowStockAlerts")}</CardTitle>
-            <AlertTriangle
-              className={`h-4 w-4 ${
-                lowStockFabrics.length > 0 ? "text-destructive" : "text-muted-foreground"
-              }`}
-            />
-          </CardHeader>
-          <CardContent>
-            <div
-              className={`text-3xl font-bold ${
-                lowStockFabrics.length > 0 ? "text-destructive" : ""
-              }`}
-            >
-              {lowStockFabrics.length}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">{t("lowStockAlertsDesc")}</p>
-          </CardContent>
-        </Card>
+        <Link href={`/${locale}/projects?status=DELIVERED`} className="block group">
+          <Card className="transition-colors group-hover:border-primary/50">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{t("deliveredProjects")}</CardTitle>
+              <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{projectCounts.delivered}</div>
+              <p className="text-xs text-muted-foreground mt-1">{t("deliveredProjectsDesc")}</p>
+            </CardContent>
+          </Card>
+        </Link>
+      </div>
+
+      {/* Stat cards — row 2: alerts */}
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-3">
+        <Link href={`/${locale}/projects?overdue=true`} className="block group">
+          <Card className={`transition-colors group-hover:border-primary/50 ${projectCounts.overdue > 0 ? "border-destructive/50" : ""}`}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{t("overdueProjects")}</CardTitle>
+              <Clock className={`h-4 w-4 ${projectCounts.overdue > 0 ? "text-destructive" : "text-muted-foreground"}`} />
+            </CardHeader>
+            <CardContent>
+              <div className={`text-3xl font-bold ${projectCounts.overdue > 0 ? "text-destructive" : ""}`}>
+                {projectCounts.overdue}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">{t("overdueProjectsDesc")}</p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href={`/${locale}/purchase-orders?dueToday=true`} className="block group">
+          <Card className={`transition-colors group-hover:border-primary/50 ${pendingPOsToday > 0 ? "border-amber-500/50" : ""}`}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{t("pendingPOsToday")}</CardTitle>
+              <CalendarClock className={`h-4 w-4 ${pendingPOsToday > 0 ? "text-amber-600" : "text-muted-foreground"}`} />
+            </CardHeader>
+            <CardContent>
+              <div className={`text-3xl font-bold ${pendingPOsToday > 0 ? "text-amber-600" : ""}`}>
+                {pendingPOsToday}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">{t("pendingPOsTodayDesc")}</p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href={`/${locale}/inventory?filter=low`} className="block group">
+          <Card className={`transition-colors group-hover:border-primary/50 ${lowStockFabrics.length > 0 ? "border-destructive/50" : ""}`}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{t("lowStockAlerts")}</CardTitle>
+              <AlertTriangle
+                className={`h-4 w-4 ${
+                  lowStockFabrics.length > 0 ? "text-destructive" : "text-muted-foreground"
+                }`}
+              />
+            </CardHeader>
+            <CardContent>
+              <div
+                className={`text-3xl font-bold ${
+                  lowStockFabrics.length > 0 ? "text-destructive" : ""
+                }`}
+              >
+                {lowStockFabrics.length}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">{t("lowStockAlertsDesc")}</p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {/* Bottom two-column section */}

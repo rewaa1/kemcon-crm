@@ -14,24 +14,39 @@ export class DashboardRepository implements IDashboardRepository {
       },
     });
 
-    const [projectGroups, recentPOs] = await Promise.all([
-      prisma.project.groupBy({ by: ["status"], _count: { _all: true } }),
-      prisma.purchaseOrder.findMany({
-        take: 5,
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          poNumber: true,
-          status: true,
-          orderedAt: true,
-          vendor: { select: { nameEn: true } },
-        },
-      }),
-    ]);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
 
-    const fabricsWithBatches = await fabricsPromise;
+    const [projectGroups, recentPOs, overdueCount, pendingPOsToday, fabricsWithBatches] =
+      await Promise.all([
+        prisma.project.groupBy({ by: ["status"], _count: { _all: true } }),
+        prisma.purchaseOrder.findMany({
+          take: 5,
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            poNumber: true,
+            status: true,
+            orderedAt: true,
+            vendor: { select: { nameEn: true } },
+          },
+        }),
+        prisma.project.count({
+          where: {
+            status: { in: ["DRAFT", "CONFIRMED", "IN_PRODUCTION"] },
+            deliveryDate: { lt: new Date() },
+          },
+        }),
+        prisma.purchaseOrder.count({
+          where: {
+            status: "PENDING",
+            expectedAt: { lte: todayEnd },
+          },
+        }),
+        fabricsPromise,
+      ]);
 
-    const projectCounts = { draft: 0, confirmed: 0, inProduction: 0, delivered: 0 };
+    const projectCounts = { draft: 0, confirmed: 0, inProduction: 0, delivered: 0, overdue: overdueCount };
     for (const g of projectGroups) {
       if (g.status === "DRAFT") projectCounts.draft = g._count._all;
       if (g.status === "CONFIRMED") projectCounts.confirmed = g._count._all;
@@ -65,6 +80,7 @@ export class DashboardRepository implements IDashboardRepository {
 
     return {
       projectCounts,
+      pendingPOsToday,
       lowStockFabrics,
       recentPOs: recentPOs.map((po) => ({
         id: po.id,

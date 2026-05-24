@@ -10,6 +10,7 @@ import type {
   CreateProjectInput,
   UpdateProjectInput,
   AddProjectItemInput,
+  UpdateProjectItemInput,
   MaterialUsageRow,
 } from "@/domain/project";
 
@@ -168,6 +169,98 @@ export class ProjectRepository implements IProjectRepository {
       }
 
       return mapItem(item);
+    });
+  }
+
+  async updateItem(itemId: string, data: UpdateProjectItemInput): Promise<ProjectItem> {
+    return prisma.$transaction(async (tx) => {
+      const existing = await tx.projectItem.findUniqueOrThrow({
+        where: { id: itemId },
+        select: { quantityNeeded: true, source: true, fabricId: true },
+      });
+
+      const oldQty = Number(existing.quantityNeeded);
+      const newQty = data.quantityNeeded ?? oldQty;
+      const delta = parseFloat((newQty - oldQty).toFixed(6));
+
+      if (delta !== 0 && existing.source === "INVENTORY" && existing.fabricId) {
+        if (delta > 0) {
+          const batches = await tx.inventoryBatch.findMany({
+            where: { fabricId: existing.fabricId, quantityLeft: { gt: 0 } },
+            orderBy: { receivedAt: "asc" },
+            select: { id: true, quantityLeft: true },
+          });
+
+          let remaining = delta;
+          const usageData: Array<{ projectItemId: string; inventoryBatchId: string; quantityUsed: number }> = [];
+          const batchUpdates: Array<{ id: string; consume: number }> = [];
+
+          for (const batch of batches) {
+            if (remaining <= 0) break;
+            const available = Number(batch.quantityLeft);
+            const consume = Math.min(remaining, available);
+            usageData.push({ projectItemId: itemId, inventoryBatchId: batch.id, quantityUsed: consume });
+            batchUpdates.push({ id: batch.id, consume });
+            remaining = parseFloat((remaining - consume).toFixed(6));
+          }
+
+          if (remaining > 0.001) throw new InsufficientStockError(existing.fabricId, remaining);
+
+          await Promise.all([
+            tx.projectItemUsage.createMany({ data: usageData }),
+            ...batchUpdates.map((u) =>
+              tx.inventoryBatch.update({
+                where: { id: u.id },
+                data: { quantityLeft: { decrement: u.consume } },
+              })
+            ),
+          ]);
+        } else {
+          // delta is negative — restore |delta| back to inventory LIFO
+          let toRestore = Math.abs(delta);
+          const usages = await tx.projectItemUsage.findMany({
+            where: { projectItemId: itemId },
+            orderBy: { id: "desc" },
+            select: { id: true, inventoryBatchId: true, quantityUsed: true },
+          });
+
+          for (const usage of usages) {
+            if (toRestore <= 0) break;
+            const used = Number(usage.quantityUsed);
+            const restore = Math.min(toRestore, used);
+            const remaining = parseFloat((used - restore).toFixed(6));
+            toRestore = parseFloat((toRestore - restore).toFixed(6));
+
+            if (remaining <= 0.001) {
+              await tx.projectItemUsage.delete({ where: { id: usage.id } });
+            } else {
+              await tx.projectItemUsage.update({
+                where: { id: usage.id },
+                data: { quantityUsed: remaining },
+              });
+            }
+            await tx.inventoryBatch.update({
+              where: { id: usage.inventoryBatchId },
+              data: { quantityLeft: { increment: restore } },
+            });
+          }
+        }
+      }
+
+      const updated = await tx.projectItem.update({
+        where: { id: itemId },
+        data: {
+          ...(data.itemTypeEn !== undefined && { itemTypeEn: data.itemTypeEn }),
+          ...(data.itemTypeAr !== undefined && { itemTypeAr: data.itemTypeAr || null }),
+          ...(data.locationId !== undefined && { locationId: data.locationId || null }),
+          ...(data.locationNoteEn !== undefined && { locationNoteEn: data.locationNoteEn || null }),
+          ...(data.quantityNeeded !== undefined && { quantityNeeded: data.quantityNeeded }),
+          ...(data.notes !== undefined && { notes: data.notes || null }),
+        },
+        include: itemInclude,
+      });
+
+      return mapItem(updated);
     });
   }
 

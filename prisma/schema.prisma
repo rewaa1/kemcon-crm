@@ -90,6 +90,22 @@ model Vendor {
 
   purchaseOrders PurchaseOrder[]
   fabricVendors  FabricVendor[]
+  contacts       VendorContact[]
+}
+
+model VendorContact {
+  id        String  @id @default(cuid())
+  nameEn    String
+  nameAr    String?
+  role      String?
+  phone     String?
+  email     String?
+  isPrimary Boolean @default(false)
+
+  vendorId String
+  vendor   Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
 }
 
 // ─── Fabrics & Inventory ──────────────────────────────────────────────────────

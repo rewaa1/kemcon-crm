@@ -33,13 +33,18 @@ function mapOrder(order: any): PurchaseOrder {
 
 export class PurchaseOrderRepository implements IPurchaseOrderRepository {
   async findAll(): Promise<PurchaseOrderSummary[]> {
-    return prisma.purchaseOrder.findMany({
+    const orders = await prisma.purchaseOrder.findMany({
       orderBy: { createdAt: "desc" },
       include: {
         vendor: vendorSelect,
         _count: { select: { lines: true } },
+        lines: { select: { quantity: true, unitPrice: true } },
       },
     });
+    return orders.map(({ lines, ...rest }) => ({
+      ...rest,
+      totalValue: lines.reduce((sum, l) => sum + Number(l.quantity) * Number(l.unitPrice), 0),
+    }));
   }
 
   async findById(id: string): Promise<PurchaseOrder | null> {
@@ -130,6 +135,15 @@ export class PurchaseOrderRepository implements IPurchaseOrderRepository {
     });
 
     return mapOrder(updated);
+  }
+
+  async getNextPoNumber(): Promise<string> {
+    const year = new Date().getFullYear();
+    const count = await prisma.purchaseOrder.count({
+      where: { poNumber: { startsWith: `PO-${year}-` } },
+    });
+    const seq = String(count + 1).padStart(3, "0");
+    return `PO-${year}-${seq}`;
   }
 
   async delete(id: string): Promise<void> {

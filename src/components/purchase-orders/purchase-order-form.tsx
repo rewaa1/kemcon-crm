@@ -28,6 +28,7 @@ type Props = {
   vendors: VendorSummary[];
   fabrics: FabricSummary[];
   locale: string;
+  suggestedPoNumber?: string;
 };
 
 function LineRow({
@@ -46,78 +47,105 @@ function LineRow({
   const fabric = fabrics.find((f) => f.id === fabricId);
   const isRolls = fabric?.unit === "ROLLS";
 
-  return (
-    <TableRow>
-      <TableCell className="align-top pt-3">
-        <FormField
-          control={control}
-          name={`lines.${index}.fabricId`}
-          render={({ field }) => (
-            <FormItem>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <FormControl>
-                  <SelectTrigger className="w-52">
-                    <SelectValue placeholder={t("selectFabric")} />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {fabrics.map((f) => (
-                    <SelectItem key={f.id} value={f.id}>
-                      <span className="font-mono me-2 text-muted-foreground">{f.codeRef}</span>
-                      {f.nameEn}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-      </TableCell>
-      <TableCell className="align-top pt-3">
-        <FormField
-          control={control}
-          name={`lines.${index}.quantity`}
-          render={({ field }) => (
-            <FormItem>
-              <FormControl>
-                <Input type="number" min="0" step="0.001" className="w-28" placeholder="0" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-      </TableCell>
-      <TableCell className="align-top pt-3">
-        <FormField
-          control={control}
-          name={`lines.${index}.unitPrice`}
-          render={({ field }) => (
-            <FormItem>
-              <FormControl>
-                <Input type="number" min="0" step="0.01" className="w-28" placeholder="0.00" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-      </TableCell>
-      <TableCell className="align-top pt-3">
-        {isRolls && (
-          <FormField
-            control={control}
-            name={`lines.${index}.metersPerRoll`}
-            render={({ field }) => (
-              <FormItem>
-                <FormControl>
-                  <Input type="number" min="0" step="0.001" className="w-28" placeholder="0" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        )}
-      </TableCell>
+  const fabricField = (
+    <FormField
+      control={control}
+      name={`lines.${index}.fabricId`}
+      render={({ field }) => (
+        <FormItem>
+          <Select onValueChange={field.onChange} defaultValue={field.value}>
+            <FormControl>
+              <SelectTrigger className="w-full md:w-52">
+                <SelectValue placeholder={t("selectFabric")} />
+              </SelectTrigger>
+            </FormControl>
+            <SelectContent>
+              {fabrics.map((f) => (
+                <SelectItem key={f.id} value={f.id}>
+                  <span className="font-mono me-2 text-muted-foreground">{f.codeRef}</span>
+                  {f.nameEn}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+
+  const qtyField = (
+    <FormField
+      control={control}
+      name={`lines.${index}.quantity`}
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel className="md:hidden text-xs text-muted-foreground">{t("quantity")}</FormLabel>
+          <FormControl>
+            <Input type="number" min="0" step="0.001" className="w-full md:w-28" placeholder="0" {...field} />
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+
+  const priceField = (
+    <FormField
+      control={control}
+      name={`lines.${index}.unitPrice`}
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel className="md:hidden text-xs text-muted-foreground">{t("unitPrice")} (EGP)</FormLabel>
+          <FormControl>
+            <Input type="number" min="0" step="0.01" className="w-full md:w-28" placeholder="0.00" {...field} />
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+
+  const mprField = isRolls ? (
+    <FormField
+      control={control}
+      name={`lines.${index}.metersPerRoll`}
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel className="md:hidden text-xs text-muted-foreground">{t("metersPerRoll")}</FormLabel>
+          <FormControl>
+            <Input type="number" min="0" step="0.001" className="w-full md:w-28" placeholder="0" {...field} />
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  ) : null;
+
+  /* Mobile card layout */
+  const mobileCard = (
+    <div className="md:hidden rounded-md border p-3 space-y-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1">{fabricField}</div>
+        <Button type="button" variant="ghost" size="icon" onClick={onRemove} className="shrink-0 mt-0.5">
+          <Trash2 className="h-4 w-4 text-destructive" />
+        </Button>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>{qtyField}</div>
+        <div>{priceField}</div>
+      </div>
+      {mprField && <div>{mprField}</div>}
+    </div>
+  );
+
+  /* Desktop table row */
+  const desktopRow = (
+    <TableRow className="hidden md:table-row">
+      <TableCell className="align-top pt-3">{fabricField}</TableCell>
+      <TableCell className="align-top pt-3">{qtyField}</TableCell>
+      <TableCell className="align-top pt-3">{priceField}</TableCell>
+      <TableCell className="align-top pt-3">{mprField}</TableCell>
       <TableCell className="align-top pt-3">
         <Button type="button" variant="ghost" size="icon" onClick={onRemove}>
           <Trash2 className="h-4 w-4 text-destructive" />
@@ -125,9 +153,16 @@ function LineRow({
       </TableCell>
     </TableRow>
   );
+
+  return (
+    <>
+      {mobileCard}
+      {desktopRow}
+    </>
+  );
 }
 
-export function PurchaseOrderForm({ vendors, fabrics, locale }: Props) {
+export function PurchaseOrderForm({ vendors, fabrics, locale, suggestedPoNumber }: Props) {
   const t = useTranslations("purchaseOrders");
   const tc = useTranslations("common");
   const router = useRouter();
@@ -136,7 +171,7 @@ export function PurchaseOrderForm({ vendors, fabrics, locale }: Props) {
   const form = useForm<PurchaseOrderFormValues>({
     resolver: zodResolver(purchaseOrderSchema) as Resolver<PurchaseOrderFormValues>,
     defaultValues: {
-      poNumber: "",
+      poNumber: suggestedPoNumber ?? "",
       vendorId: "",
       expectedAt: "",
       notes: "",
@@ -173,6 +208,9 @@ export function PurchaseOrderForm({ vendors, fabrics, locale }: Props) {
                   <FormControl>
                     <Input placeholder="e.g. PO-2026-001" {...field} />
                   </FormControl>
+                  {suggestedPoNumber && (
+                    <p className="text-xs text-muted-foreground">{t("suggestedNumber")}</p>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}
@@ -230,7 +268,20 @@ export function PurchaseOrderForm({ vendors, fabrics, locale }: Props) {
 
         <div className="space-y-3">
           <h2 className="font-semibold">{t("lineItems")}</h2>
-          <div className="rounded-md border">
+          {/* Mobile: stacked cards */}
+          <div className="md:hidden space-y-2">
+            {fields.map((field, index) => (
+              <LineRow
+                key={field.id}
+                index={index}
+                control={form.control}
+                fabrics={fabrics}
+                onRemove={() => remove(index)}
+              />
+            ))}
+          </div>
+          {/* Desktop: table */}
+          <div className="hidden md:block rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>

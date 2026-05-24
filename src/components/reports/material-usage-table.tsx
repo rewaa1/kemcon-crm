@@ -25,17 +25,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PackageSearch } from "lucide-react";
 import type { MaterialUsageRow, ProjectStatus, SupplySource } from "@/domain/project";
+import { PROJECT_STATUS_VARIANT } from "@/lib/status-variants";
 
 type Props = {
   rows: MaterialUsageRow[];
   hotels: { id: string; nameEn: string }[];
-};
-
-const STATUS_VARIANT: Record<ProjectStatus, "default" | "secondary" | "outline" | "destructive"> = {
-  DRAFT: "secondary",
-  CONFIRMED: "outline",
-  IN_PRODUCTION: "default",
-  DELIVERED: "default",
 };
 
 const SOURCE_VARIANT: Record<SupplySource, "default" | "secondary" | "outline"> = {
@@ -47,14 +41,16 @@ const SOURCE_VARIANT: Record<SupplySource, "default" | "secondary" | "outline"> 
 export function MaterialUsageTable({ rows, hotels }: Props) {
   const t = useTranslations("reports");
   const tp = useTranslations("projects");
+  const tc = useTranslations("common");
 
   const [hotelId, setHotelId] = useState("all");
   const [status, setStatus] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [dateSort, setDateSort] = useState<"newest" | "oldest">("newest");
 
   const filtered = useMemo(() => {
-    return rows.filter((row) => {
+    const base = rows.filter((row) => {
       if (hotelId !== "all" && row.hotelId !== hotelId) return false;
       if (status !== "all" && row.projectStatus !== status) return false;
       if (dateFrom && row.deliveryDate) {
@@ -65,7 +61,12 @@ export function MaterialUsageTable({ rows, hotels }: Props) {
       }
       return true;
     });
-  }, [rows, hotelId, status, dateFrom, dateTo]);
+    return [...base].sort((a, b) => {
+      const ad = a.deliveryDate ? new Date(a.deliveryDate).getTime() : 0;
+      const bd = b.deliveryDate ? new Date(b.deliveryDate).getTime() : 0;
+      return dateSort === "newest" ? bd - ad : ad - bd;
+    });
+  }, [rows, hotelId, status, dateFrom, dateTo, dateSort]);
 
   const byFabric = useMemo(() => {
     const map = new Map<
@@ -154,21 +155,37 @@ export function MaterialUsageTable({ rows, hotels }: Props) {
         </div>
 
         <div className="flex items-center gap-2">
-          <Input
-            type="date"
-            className="w-[150px]"
-            placeholder={t("filterDateFrom")}
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-          />
-          <span className="text-muted-foreground text-sm">–</span>
-          <Input
-            type="date"
-            className="w-[150px]"
-            placeholder={t("filterDateTo")}
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-          />
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-muted-foreground leading-none">{t("filterDateFrom")}</label>
+            <Input
+              type="date"
+              className="w-[150px]"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+            />
+          </div>
+          <span className="text-muted-foreground text-sm mt-5">–</span>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-muted-foreground leading-none">{t("filterDateTo")}</label>
+            <Input
+              type="date"
+              className="w-[150px]"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="min-w-[150px]">
+          <Select value={dateSort} onValueChange={(v) => setDateSort(v as "newest" | "oldest")}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest">{tc("sortNewest")}</SelectItem>
+              <SelectItem value="oldest">{tc("sortOldest")}</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {hasFilters && (
@@ -235,7 +252,7 @@ export function MaterialUsageTable({ rows, hotels }: Props) {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={STATUS_VARIANT[row.projectStatus]}>
+                        <Badge variant={PROJECT_STATUS_VARIANT[row.projectStatus]}>
                           {tp(`status.${row.projectStatus}`)}
                         </Badge>
                       </TableCell>

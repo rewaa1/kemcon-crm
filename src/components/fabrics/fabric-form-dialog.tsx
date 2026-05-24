@@ -21,7 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { fabricSchema, type FabricFormValues } from "@/application/fabrics/schemas";
-import { createFabricAction, updateFabricAction } from "@/app/[locale]/(dashboard)/inventory/actions";
+import { createFabricAction, updateFabricAction } from "@/app/[locale]/(dashboard)/fabrics/actions";
 import { createClient } from "@/lib/supabase/client";
 import type { FabricSummary } from "@/domain/fabric";
 

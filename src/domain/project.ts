@@ -77,6 +77,15 @@ export type AddProjectItemInput = {
   notes?: string;
 };
 
+export type UpdateProjectItemInput = {
+  itemTypeEn?: string;
+  itemTypeAr?: string;
+  locationId?: string;
+  locationNoteEn?: string;
+  quantityNeeded?: number;
+  notes?: string;
+};
+
 export type MaterialUsageRow = {
   projectItemId: string;
   projectId: string;
@@ -105,6 +114,7 @@ export interface IProjectRepository {
   update(id: string, data: UpdateProjectInput): Promise<Project>;
   updateStatus(id: string, status: ProjectStatus): Promise<Project>;
   addItem(projectId: string, data: AddProjectItemInput): Promise<ProjectItem>;
+  updateItem(itemId: string, data: UpdateProjectItemInput): Promise<ProjectItem>;
   deleteItem(itemId: string): Promise<void>;
   delete(id: string): Promise<void>;
   getMaterialUsageReport(): Promise<MaterialUsageRow[]>;

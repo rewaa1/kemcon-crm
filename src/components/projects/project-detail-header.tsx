@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useOptimistic } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { format } from "date-fns";
@@ -23,14 +23,13 @@ import type { HotelSummary } from "@/domain/hotel";
 
 type Props = { project: Project; hotels: HotelSummary[]; locale: string };
 
-const STATUS_VARIANT: Record<ProjectStatus, "default" | "secondary" | "outline"> = {
-  DRAFT: "secondary",
-  CONFIRMED: "outline",
-  IN_PRODUCTION: "default",
-  DELIVERED: "default",
-};
-
 const ALL_STATUSES: ProjectStatus[] = ["DRAFT", "CONFIRMED", "IN_PRODUCTION", "DELIVERED"];
+const STATUS_ORDER: Record<ProjectStatus, number> = {
+  DRAFT: 0,
+  CONFIRMED: 1,
+  IN_PRODUCTION: 2,
+  DELIVERED: 3,
+};
 
 export function ProjectDetailHeader({ project, hotels, locale }: Props) {
   const t = useTranslations("projects");
@@ -39,15 +38,30 @@ export function ProjectDetailHeader({ project, hotels, locale }: Props) {
   const [isPending, startTransition] = useTransition();
   const [formOpen, setFormOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<ProjectStatus | null>(null);
+
+  const [optimisticStatus, setOptimisticStatus] = useOptimistic(project.status);
 
   function handleStatusChange(status: string) {
+    const next = status as ProjectStatus;
+    const isBackwards = STATUS_ORDER[next] < STATUS_ORDER[optimisticStatus];
+    if (isBackwards) {
+      setPendingStatus(next);
+      return;
+    }
+    commitStatusChange(next);
+  }
+
+  function commitStatusChange(status: ProjectStatus) {
     startTransition(async () => {
-      const result = await updateProjectStatusAction(project.id, status as ProjectStatus);
+      setOptimisticStatus(status);
+      const result = await updateProjectStatusAction(project.id, status);
       if (result.success) {
         toast.success(t("statusUpdatedSuccess"));
         router.refresh();
       } else {
         toast.error(result.error);
+        setOptimisticStatus(project.status);
       }
     });
   }
@@ -94,7 +108,7 @@ export function ProjectDetailHeader({ project, hotels, locale }: Props) {
 
         <div className="flex items-center gap-2 shrink-0">
           <Select
-            value={project.status}
+            value={optimisticStatus}
             onValueChange={handleStatusChange}
             disabled={isPending}
           >
@@ -108,14 +122,15 @@ export function ProjectDetailHeader({ project, hotels, locale }: Props) {
             </SelectContent>
           </Select>
 
-          <Button variant="outline" size="icon" onClick={() => setFormOpen(true)}>
+          <Button variant="outline" size="icon" aria-label={`Edit ${project.nameEn}`} onClick={() => setFormOpen(true)}>
             <Pencil className="h-4 w-4" />
           </Button>
 
-          {project.status === "DRAFT" && (
+          {optimisticStatus === "DRAFT" && (
             <Button
               variant="outline"
               size="icon"
+              aria-label={`Delete ${project.nameEn}`}
               className="text-destructive hover:text-destructive"
               onClick={() => setDeleteOpen(true)}
             >
@@ -135,7 +150,7 @@ export function ProjectDetailHeader({ project, hotels, locale }: Props) {
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("delete")}</AlertDialogTitle>
+            <AlertDialogTitle>{t("delete")} &ldquo;{project.nameEn}&rdquo;?</AlertDialogTitle>
             <AlertDialogDescription>{t("deleteConfirm")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -146,6 +161,32 @@ export function ProjectDetailHeader({ project, hotels, locale }: Props) {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {tc("delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Backwards transition confirmation */}
+      <AlertDialog open={!!pendingStatus} onOpenChange={(o) => !o && setPendingStatus(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("backwardsTransitionTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("backwardsTransitionDesc", {
+                from: t(`status.${optimisticStatus}`),
+                to: pendingStatus ? t(`status.${pendingStatus}`) : "",
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingStatus(null)}>{tc("cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingStatus) commitStatusChange(pendingStatus);
+                setPendingStatus(null);
+              }}
+            >
+              {t("backwardsTransitionConfirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

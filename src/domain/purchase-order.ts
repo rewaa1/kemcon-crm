@@ -41,6 +41,7 @@ export type PurchaseOrderSummary = {
   orderedAt: Date;
   expectedAt: Date | null;
   createdAt: Date;
+  totalValue: number;
   _count: { lines: number };
 };
 
@@ -66,4 +67,5 @@ export interface IPurchaseOrderRepository {
   create(data: CreatePurchaseOrderInput): Promise<PurchaseOrder>;
   receive(id: string): Promise<PurchaseOrder>;
   delete(id: string): Promise<void>;
+  getNextPoNumber(): Promise<string>;
 }

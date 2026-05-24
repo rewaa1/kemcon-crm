@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FabricFormDialog } from "./fabric-form-dialog";
-import { deleteFabricAction } from "@/app/[locale]/(dashboard)/inventory/actions";
+import { deleteFabricAction } from "@/app/[locale]/(dashboard)/fabrics/actions";
 import type { FabricSummary } from "@/domain/fabric";
 
 type VendorOption = { id: string; nameEn: string; nameAr: string | null };

@@ -41,11 +41,13 @@ export function CreateProjectWizard({ open, onOpenChange, hotels, fabrics, stock
   const t = useTranslations("projects");
   const tc = useTranslations("common");
   const [isPending, startTransition] = useTransition();
+  const [isCreating, setIsCreating] = useState(false);
 
   const [step, setStep] = useState<"project" | "items">("project");
   const [projectId, setProjectId] = useState<string | null>(null);
   const [projectNameEn, setProjectNameEn] = useState("");
   const [selectedHotelId, setSelectedHotelId] = useState("");
+  const [pendingProjectValues, setPendingProjectValues] = useState<ProjectFormValues | null>(null);
   const [addItemOpen, setAddItemOpen] = useState(false);
   const [wizardItems, setWizardItems] = useState<AddedItem[]>([]);
 
@@ -63,23 +65,34 @@ export function CreateProjectWizard({ open, onOpenChange, hotels, fabrics, stock
     setProjectId(null);
     setProjectNameEn("");
     setSelectedHotelId("");
+    setPendingProjectValues(null);
     setWizardItems([]);
     setAddItemOpen(false);
     projectForm.reset();
   }, [open]);
 
   function onProjectSubmit(values: ProjectFormValues) {
-    startTransition(async () => {
-      const result = await createProjectAction(values);
+    setPendingProjectValues(values);
+    setProjectNameEn(values.nameEn);
+    setSelectedHotelId(values.hotelId);
+    setStep("items");
+  }
+
+  async function handleOpenAddItem() {
+    if (projectId) { setAddItemOpen(true); return; }
+    if (!pendingProjectValues) return;
+    setIsCreating(true);
+    try {
+      const result = await createProjectAction(pendingProjectValues);
       if (result.success && result.data) {
         setProjectId(result.data.id);
-        setProjectNameEn(values.nameEn);
-        setSelectedHotelId(values.hotelId);
-        setStep("items");
+        setAddItemOpen(true);
       } else {
         toast.error(!result.success ? result.error : t("createdFailed"));
       }
-    });
+    } finally {
+      setIsCreating(false);
+    }
   }
 
   function handleItemAdded(item: AddedItem) {
@@ -267,10 +280,12 @@ export function CreateProjectWizard({ open, onOpenChange, hotels, fabrics, stock
               <Button
                 variant="outline"
                 className="w-full"
-                onClick={() => setAddItemOpen(true)}
-                disabled={isPending}
+                onClick={handleOpenAddItem}
+                disabled={isPending || isCreating}
               >
-                <Plus className="h-4 w-4 me-2" />
+                {isCreating
+                  ? <Loader2 className="h-4 w-4 animate-spin me-2" />
+                  : <Plus className="h-4 w-4 me-2" />}
                 {wizardItems.length === 0 ? t("wizard.addFirstItem") : t("wizard.addAnotherItem")}
               </Button>
 
@@ -284,7 +299,7 @@ export function CreateProjectWizard({ open, onOpenChange, hotels, fabrics, stock
         </DialogContent>
       </Dialog>
 
-      {projectId && (
+      {projectId && addItemOpen && (
         <AddItemWizard
           open={addItemOpen}
           onOpenChange={setAddItemOpen}

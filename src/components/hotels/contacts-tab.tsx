@@ -78,8 +78,20 @@ export function ContactsTab({ hotelId, contacts }: Props) {
                     {contact.nameAr ?? "—"}
                   </TableCell>
                   <TableCell className="text-muted-foreground">{contact.role ?? "—"}</TableCell>
-                  <TableCell className="text-muted-foreground">{contact.phone ?? "—"}</TableCell>
-                  <TableCell className="text-muted-foreground">{contact.email ?? "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {contact.phone ? (
+                      <a href={`tel:${contact.phone}`} className="hover:underline">
+                        {contact.phone}
+                      </a>
+                    ) : "—"}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {contact.email ? (
+                      <a href={`mailto:${contact.email}`} className="hover:underline">
+                        {contact.email}
+                      </a>
+                    ) : "—"}
+                  </TableCell>
                   <TableCell>
                     {contact.isPrimary && (
                       <Badge variant="default" className="text-xs">{t("primary")}</Badge>

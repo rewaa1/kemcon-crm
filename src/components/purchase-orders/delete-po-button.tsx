@@ -12,9 +12,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { deletePurchaseOrderAction } from "@/app/[locale]/(dashboard)/purchase-orders/actions";
 
-type Props = { id: string; locale: string };
+type Props = { id: string; locale: string; poNumber: string };
 
-export function DeletePOButton({ id, locale }: Props) {
+export function DeletePOButton({ id, locale, poNumber }: Props) {
   const t = useTranslations("purchaseOrders");
   const tc = useTranslations("common");
   const router = useRouter();
@@ -44,7 +44,7 @@ export function DeletePOButton({ id, locale }: Props) {
       <AlertDialog open={open} onOpenChange={setOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("delete")}</AlertDialogTitle>
+            <AlertDialogTitle>{t("delete")} &ldquo;{poNumber}&rdquo;?</AlertDialogTitle>
             <AlertDialogDescription>{t("deleteConfirm")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
