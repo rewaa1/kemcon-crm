@@ -303,7 +303,26 @@
       "changeImage": "Change Photo",
       "removeImage": "Remove",
       "imageTooBig": "Image must be smaller than 5 MB",
-      "imageUploadFailed": "Failed to upload image, please try again"
+      "imageUploadFailed": "Failed to upload image, please try again",
+      "customFabricCode": "Fabric Code",
+      "customFabricCodePlaceholder": "e.g. BLK-300",
+      "dimensionsLabel": "Production & Fabric Calculation",
+      "itemCount": "No. of Items",
+      "itemWidth": "Width",
+      "itemHeight": "Height",
+      "totalSupplied": "Total Fabric Supplied",
+      "fabricNeeded": "Fabric needed",
+      "productionLoss": "Production Loss",
+      "fabricLeftover": "Leftovers",
+      "autoCalculated": "auto-calculated",
+      "addNewLocation": "+ Add new location",
+      "newLocation": "New Location",
+      "locationNameEn": "Name (EN)",
+      "locationNameEnPlaceholder": "e.g. Suite 301",
+      "locationNameAr": "Name (AR)",
+      "saveLocation": "Save Location",
+      "locationAddedSuccess": "Location added",
+      "locationAddFailed": "Failed to add location"
     }
   },
   "inventory": {

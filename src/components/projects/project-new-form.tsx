@@ -191,7 +191,7 @@ export function ProjectNewForm({ hotels, fabrics, stockSummary }: Props) {
                         <SelectValue placeholder={t("selectHotel")} />
                       </SelectTrigger>
                     </FormControl>
-                    <SelectContent>
+                    <SelectContent className="max-h-72">
                       {hotels.map((h) => (
                         <SelectItem key={h.id} value={h.id}>{h.nameEn}</SelectItem>
                       ))}
@@ -324,6 +324,7 @@ export function ProjectNewForm({ hotels, fabrics, stockSummary }: Props) {
           open={addItemOpen}
           onOpenChange={setAddItemOpen}
           projectId={projectId}
+          hotelId={selectedHotelId}
           fabrics={fabrics}
           stockSummary={stockSummary}
           locations={hotelLocations}

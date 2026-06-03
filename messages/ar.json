@@ -303,7 +303,26 @@
       "changeImage": "تغيير الصورة",
       "removeImage": "حذف",
       "imageTooBig": "يجب أن تكون الصورة أصغر من 5 ميجابايت",
-      "imageUploadFailed": "فشل رفع الصورة، يرجى المحاولة مرة أخرى"
+      "imageUploadFailed": "فشل رفع الصورة، يرجى المحاولة مرة أخرى",
+      "customFabricCode": "كود القماش",
+      "customFabricCodePlaceholder": "مثال: BLK-300",
+      "dimensionsLabel": "الإنتاج وحساب القماش",
+      "itemCount": "عدد القطع",
+      "itemWidth": "العرض",
+      "itemHeight": "الارتفاع",
+      "totalSupplied": "إجمالي القماش المورد",
+      "fabricNeeded": "القماش المطلوب",
+      "productionLoss": "هالك الإنتاج",
+      "fabricLeftover": "الفائض",
+      "autoCalculated": "محسوب تلقائيًا",
+      "addNewLocation": "+ إضافة موقع جديد",
+      "newLocation": "موقع جديد",
+      "locationNameEn": "الاسم (EN)",
+      "locationNameEnPlaceholder": "مثال: Suite 301",
+      "locationNameAr": "الاسم (AR)",
+      "saveLocation": "حفظ الموقع",
+      "locationAddedSuccess": "تم إضافة الموقع",
+      "locationAddFailed": "فشل إضافة الموقع"
     }
   },
   "inventory": {

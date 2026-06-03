@@ -1,12 +1,13 @@
 "use client";
 
-import { useTransition } from "react";
-import { useForm, type Resolver } from "react-hook-form";
+import { useTransition, useMemo, useEffect } from "react";
+import { useForm, useWatch, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
-import { Loader2 } from "lucide-react";
+import { Loader2, Calculator } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -30,6 +31,11 @@ const schema = z.object({
   locationNoteEn: z.string().optional(),
   quantityNeeded: z.coerce.number().positive("Must be greater than 0"),
   notes: z.string().optional(),
+  itemCount: z.coerce.number().int().positive().optional(),
+  itemWidth: z.coerce.number().positive().optional(),
+  itemHeight: z.coerce.number().positive().optional(),
+  totalSupplied: z.coerce.number().positive().optional(),
+  productionLoss: z.coerce.number().nonnegative().optional(),
 });
 
 type FormValues = z.output<typeof schema>;
@@ -49,6 +55,7 @@ export function EditProjectItemDialog({ open, onOpenChange, projectId, item, loc
 
   const fabricName = item.fabric?.nameEn ?? item.customFabricName ?? "—";
   const unitLabel = item.unit === "METERS" ? t("unitMeters") : t("unitRolls");
+  const isNonInventory = item.source === "CLIENT" || item.source === "DIRECT";
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema) as Resolver<FormValues>,
@@ -59,8 +66,45 @@ export function EditProjectItemDialog({ open, onOpenChange, projectId, item, loc
       locationNoteEn: item.locationNoteEn ?? "",
       quantityNeeded: item.quantityNeeded,
       notes: item.notes ?? "",
+      itemCount: item.itemCount ?? undefined,
+      itemWidth: item.itemWidth ?? undefined,
+      itemHeight: item.itemHeight ?? undefined,
+      totalSupplied: item.totalSupplied ?? undefined,
+      productionLoss: item.productionLoss ?? undefined,
     },
   });
+
+  const watchedItemCount = useWatch({ control: form.control, name: "itemCount" });
+  const watchedWidth = useWatch({ control: form.control, name: "itemWidth" });
+  const watchedHeight = useWatch({ control: form.control, name: "itemHeight" });
+  const watchedTotalSupplied = useWatch({ control: form.control, name: "totalSupplied" });
+  const watchedProductionLoss = useWatch({ control: form.control, name: "productionLoss" });
+
+  const calculatedQty = useMemo(() => {
+    const count = Number(watchedItemCount) || 0;
+    const w = Number(watchedWidth) || 0;
+    const h = Number(watchedHeight) || 0;
+    if (count > 0 && w > 0 && h > 0) return parseFloat((count * w * h).toFixed(3));
+    return null;
+  }, [watchedItemCount, watchedWidth, watchedHeight]);
+
+  // Leftovers = Total Supplied − Fabric Needed − Production Loss
+  const calculatedLeftover = useMemo(() => {
+    const supplied = Number(watchedTotalSupplied) || 0;
+    const loss = Number(watchedProductionLoss) || 0;
+    if (calculatedQty !== null && supplied > 0) {
+      return parseFloat((supplied - calculatedQty - loss).toFixed(3));
+    }
+    return null;
+  }, [calculatedQty, watchedTotalSupplied, watchedProductionLoss]);
+
+  useEffect(() => {
+    if (calculatedQty !== null && isNonInventory) {
+      form.setValue("quantityNeeded", calculatedQty);
+    }
+  }, [calculatedQty]);
+
+  const qtyAutoCalculated = isNonInventory && calculatedQty !== null;
 
   function onSubmit(values: FormValues) {
     startTransition(async () => {
@@ -71,6 +115,14 @@ export function EditProjectItemDialog({ open, onOpenChange, projectId, item, loc
         locationNoteEn: values.locationNoteEn,
         quantityNeeded: values.quantityNeeded,
         notes: values.notes,
+        ...(isNonInventory && {
+          itemCount: values.itemCount,
+          itemWidth: values.itemWidth,
+          itemHeight: values.itemHeight,
+          totalSupplied: values.totalSupplied,
+          productionLoss: values.productionLoss,
+          fabricLeftover: calculatedLeftover ?? undefined,
+        }),
       });
       if (result.success) {
         toast.success(t("itemUpdatedSuccess"));
@@ -93,7 +145,7 @@ export function EditProjectItemDialog({ open, onOpenChange, projectId, item, loc
         </div>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-h-[68vh] overflow-y-auto pe-0.5">
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -123,14 +175,134 @@ export function EditProjectItemDialog({ open, onOpenChange, projectId, item, loc
               />
             </div>
 
+            {/* Dimension fields — CLIENT / DIRECT only */}
+            {isNonInventory && (
+              <div className="rounded-xl border bg-muted/10 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Calculator className="h-3.5 w-3.5 text-muted-foreground" />
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    {t("wizard.dimensionsLabel")}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="itemCount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t("wizard.itemCount")}</FormLabel>
+                        <FormControl>
+                          <Input type="number" onWheel={(e) => e.currentTarget.blur()} min="1" step="1" placeholder="0" {...field} value={field.value ?? ""} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="itemWidth"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t("wizard.itemWidth")} (m)</FormLabel>
+                        <FormControl>
+                          <Input type="number" onWheel={(e) => e.currentTarget.blur()} min="0" step="0.001" placeholder="0.00" {...field} value={field.value ?? ""} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="itemHeight"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t("wizard.itemHeight")} (m)</FormLabel>
+                        <FormControl>
+                          <Input type="number" onWheel={(e) => e.currentTarget.blur()} min="0" step="0.001" placeholder="0.00" {...field} value={field.value ?? ""} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="totalSupplied"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t("wizard.totalSupplied")} ({unitLabel})</FormLabel>
+                        <FormControl>
+                          <Input type="number" onWheel={(e) => e.currentTarget.blur()} min="0" step="0.001" placeholder="0.000" {...field} value={field.value ?? ""} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="productionLoss"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t("wizard.productionLoss")} ({unitLabel})</FormLabel>
+                        <FormControl>
+                          <Input type="number" onWheel={(e) => e.currentTarget.blur()} min="0" step="0.001" placeholder="0.000" {...field} value={field.value ?? ""} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {calculatedQty !== null && (
+                  <div className="rounded-lg bg-muted/50 border px-3 py-2.5 space-y-1.5 text-sm">
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">{t("wizard.fabricNeeded")}</span>
+                      <span className="font-semibold tabular-nums">
+                        {calculatedQty.toLocaleString()} {unitLabel}
+                      </span>
+                    </div>
+                    {Number(watchedProductionLoss) > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">{t("wizard.productionLoss")}</span>
+                        <span className="font-semibold tabular-nums text-amber-600">
+                          {Number(watchedProductionLoss).toLocaleString()} {unitLabel}
+                        </span>
+                      </div>
+                    )}
+                    {calculatedLeftover !== null && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">{t("wizard.fabricLeftover")}</span>
+                        <span className={cn("font-semibold tabular-nums", calculatedLeftover < 0 ? "text-destructive" : "text-green-600")}>
+                          {calculatedLeftover.toLocaleString()} {unitLabel}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             <FormField
               control={form.control}
               name="quantityNeeded"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("quantityNeeded")} ({unitLabel})</FormLabel>
+                  <FormLabel>
+                    {t("quantityNeeded")} ({unitLabel})
+                    {qtyAutoCalculated && (
+                      <span className="ms-1 text-xs text-muted-foreground">({t("wizard.autoCalculated")})</span>
+                    )}
+                  </FormLabel>
                   <FormControl>
-                    <Input type="number" min="0" step="0.001" {...field} />
+                    <Input
+                      type="number" onWheel={(e) => e.currentTarget.blur()} min="0" step="0.001"
+                      readOnly={qtyAutoCalculated}
+                      className={cn(qtyAutoCalculated && "bg-muted text-muted-foreground")}
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

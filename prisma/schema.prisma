@@ -235,6 +235,7 @@ model ProjectItem {
   fabricId         String?
   fabric           Fabric?       @relation(fields: [fabricId], references: [id])
   customFabricName     String?
+  customFabricCode     String?
   customFabricImageUrl String?
   // e.g. "curtains", "sofa upholstery", "bed sheets"
   itemTypeEn       String
@@ -248,11 +249,33 @@ model ProjectItem {
   source           SupplySource  @default(INVENTORY)
   notes            String?
 
+  // Dimensions & production fields (CLIENT / DIRECT only)
+  itemCount        Int?
+  itemWidth        Decimal?      @db.Decimal(10, 3)
+  itemHeight       Decimal?      @db.Decimal(10, 3)
+  totalSupplied    Decimal?      @db.Decimal(12, 3)
+  productionLoss   Decimal?      @db.Decimal(12, 3)
+  fabricLeftover   Decimal?      @db.Decimal(12, 3)
+
   usageLines ProjectItemUsage[]
+  stages     ProjectItemStage[]
 
   @@index([projectId])
   @@index([fabricId])
   @@index([locationId])
+}
+
+// A staged delivery / production batch for a project item (e.g. 150 of 500 curtains)
+model ProjectItemStage {
+  id            String      @id @default(cuid())
+  projectItemId String
+  projectItem   ProjectItem @relation(fields: [projectItemId], references: [id], onDelete: Cascade)
+  quantity      Int         // number of pieces completed in this stage
+  stageDate     DateTime    @default(now())
+  notes         String?
+  createdAt     DateTime    @default(now())
+
+  @@index([projectItemId])
 }
 
 // Tracks exactly which inventory batch was consumed for a project item

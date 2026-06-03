@@ -168,13 +168,13 @@ export function CreateProjectWizard({ open, onOpenChange, hotels, fabrics, stock
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>{t("hotel")}</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder={t("selectHotel")} />
                           </SelectTrigger>
                         </FormControl>
-                        <SelectContent>
+                        <SelectContent className="max-h-72">
                           {hotels.map((h) => (
                             <SelectItem key={h.id} value={h.id}>{h.nameEn}</SelectItem>
                           ))}
@@ -304,6 +304,7 @@ export function CreateProjectWizard({ open, onOpenChange, hotels, fabrics, stock
           open={addItemOpen}
           onOpenChange={setAddItemOpen}
           projectId={projectId}
+          hotelId={selectedHotelId}
           fabrics={fabrics}
           stockSummary={stockSummary}
           locations={hotelLocations}

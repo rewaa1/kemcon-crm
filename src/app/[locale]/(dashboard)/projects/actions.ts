@@ -7,6 +7,7 @@ import { updateProject } from "@/application/projects/commands/update-project";
 import { deleteProject } from "@/application/projects/commands/delete-project";
 import type { CreateProjectInput, UpdateProjectInput } from "@/domain/project";
 import { requireUser } from "@/lib/supabase/server";
+import { toUserMessage } from "@/lib/action-error";
 
 type ActionResult = { success: true } | { success: false; error: string };
 
@@ -30,7 +31,7 @@ export async function createProjectAction(
     revalidate();
     return { success: true, data: { id: project.id } };
   } catch (e) {
-    return { success: false, error: e instanceof Error ? e.message : "Failed to create project" };
+    return { success: false, error: toUserMessage(e, "Failed to create project") };
   }
 }
 
@@ -44,7 +45,7 @@ export async function updateProjectAction(
     revalidate(id);
     return { success: true };
   } catch (e) {
-    return { success: false, error: e instanceof Error ? e.message : "Failed to update project" };
+    return { success: false, error: toUserMessage(e, "Failed to update project") };
   }
 }
 
@@ -55,6 +56,6 @@ export async function deleteProjectAction(id: string): Promise<ActionResult> {
     revalidate();
     return { success: true };
   } catch (e) {
-    return { success: false, error: e instanceof Error ? e.message : "Failed to delete project" };
+    return { success: false, error: toUserMessage(e, "Failed to delete project") };
   }
 }

@@ -68,6 +68,7 @@ export default async function ProjectDetailPage({
         <TabsContent value="items" className="mt-4">
           <ProjectItemsTab
             projectId={project.id}
+            hotelId={project.hotelId}
             items={project.items}
             fabrics={fabrics}
             stockSummary={stockSummary}

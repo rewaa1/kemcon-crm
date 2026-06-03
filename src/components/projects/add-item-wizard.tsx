@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useTransition, useEffect, useRef } from "react";
-import { useForm, type Resolver } from "react-hook-form";
+import { useState, useTransition, useEffect, useRef, useMemo } from "react";
+import { useForm, useWatch, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 import Image from "next/image";
 import {
-  Loader2, Warehouse, User, ShoppingCart, Layers, PenLine, Search, ImageIcon, Upload, X,
+  Loader2, Warehouse, User, ShoppingCart, Layers, PenLine, Search,
+  ImageIcon, Upload, X, Plus, MapPin, Calculator,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -24,7 +25,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { projectItemSchema, type ProjectItemFormValues } from "@/application/projects/schemas";
-import { addProjectItemAction } from "@/app/[locale]/(dashboard)/projects/[id]/actions";
+import {
+  addProjectItemAction,
+  addHotelLocationAction,
+} from "@/app/[locale]/(dashboard)/projects/[id]/actions";
 import type { FabricSummary } from "@/domain/fabric";
 import type { FabricStockSummary } from "@/domain/inventory";
 import type { HotelLocation } from "@/domain/hotel";
@@ -58,6 +62,7 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   projectId: string;
+  hotelId: string;
   fabrics: FabricSummary[];
   stockSummary: FabricStockSummary[];
   locations: HotelLocation[];
@@ -65,7 +70,7 @@ type Props = {
 };
 
 export function AddItemWizard({
-  open, onOpenChange, projectId, fabrics, stockSummary, locations, onItemAdded,
+  open, onOpenChange, projectId, hotelId, fabrics, stockSummary, locations, onItemAdded,
 }: Props) {
   const t = useTranslations("projects");
   const tc = useTranslations("common");
@@ -76,6 +81,13 @@ export function AddItemWizard({
   const [pickedFabric, setPickedFabric] = useState<PickedFabric | null>(null);
   const [fabricSearch, setFabricSearch] = useState("");
 
+  // Local locations list — starts from prop, gets extended when user adds a new one inline
+  const [localLocations, setLocalLocations] = useState<HotelLocation[]>(locations);
+  const [showNewLocation, setShowNewLocation] = useState(false);
+  const [newLocNameEn, setNewLocNameEn] = useState("");
+  const [newLocNameAr, setNewLocNameAr] = useState("");
+  const [isSavingLocation, startLocationTransition] = useTransition();
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -83,11 +95,52 @@ export function AddItemWizard({
   const form = useForm<ProjectItemFormValues>({
     resolver: zodResolver(projectItemSchema) as Resolver<ProjectItemFormValues>,
     defaultValues: {
-      fabricId: "", customFabricName: "", itemTypeEn: "", itemTypeAr: "",
+      fabricId: "", customFabricName: "", customFabricCode: "",
+      itemTypeEn: "", itemTypeAr: "",
       locationId: "", locationNoteEn: "", quantityNeeded: 0,
       unit: "METERS", source: "INVENTORY", notes: "",
+      itemCount: undefined, itemWidth: undefined, itemHeight: undefined,
+      totalSupplied: undefined, productionLoss: undefined, fabricLeftover: undefined,
     },
   });
+
+  // Watch dimension fields for live calculation
+  const watchedItemCount = useWatch({ control: form.control, name: "itemCount" });
+  const watchedWidth = useWatch({ control: form.control, name: "itemWidth" });
+  const watchedHeight = useWatch({ control: form.control, name: "itemHeight" });
+  const watchedTotalSupplied = useWatch({ control: form.control, name: "totalSupplied" });
+  const watchedProductionLoss = useWatch({ control: form.control, name: "productionLoss" });
+  const watchedUnit = form.watch("unit");
+
+  const isNonInventory = selectedSource === "CLIENT" || selectedSource === "DIRECT";
+
+  const calculatedQty = useMemo(() => {
+    const count = Number(watchedItemCount) || 0;
+    const w = Number(watchedWidth) || 0;
+    const h = Number(watchedHeight) || 0;
+    if (count > 0 && w > 0 && h > 0) return parseFloat((count * w * h).toFixed(3));
+    return null;
+  }, [watchedItemCount, watchedWidth, watchedHeight]);
+
+  // Leftovers = Total Supplied − Fabric Needed − Production Loss
+  const calculatedLeftover = useMemo(() => {
+    const supplied = Number(watchedTotalSupplied) || 0;
+    const loss = Number(watchedProductionLoss) || 0;
+    if (calculatedQty !== null && supplied > 0) {
+      return parseFloat((supplied - calculatedQty - loss).toFixed(3));
+    }
+    return null;
+  }, [calculatedQty, watchedTotalSupplied, watchedProductionLoss]);
+
+  // Auto-fill quantityNeeded when dimensions produce a valid calc
+  useEffect(() => {
+    if (calculatedQty !== null && isNonInventory) {
+      form.setValue("quantityNeeded", calculatedQty);
+      if (calculatedLeftover !== null) {
+        form.setValue("fabricLeftover", calculatedLeftover);
+      }
+    }
+  }, [calculatedQty, calculatedLeftover]);
 
   useEffect(() => {
     if (!open) return;
@@ -97,18 +150,24 @@ export function AddItemWizard({
     setFabricSearch("");
     setSelectedImageFile(null);
     setImagePreview(null);
+    setShowNewLocation(false);
+    setNewLocNameEn("");
+    setNewLocNameAr("");
+    setLocalLocations(locations);
     form.reset();
   }, [open]);
+
+  // Keep localLocations in sync when parent prop changes (e.g. page reload)
+  useEffect(() => {
+    setLocalLocations(locations);
+  }, [locations]);
 
   const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > MAX_IMAGE_SIZE) {
-      toast.error(t("wizard.imageTooBig"));
-      return;
-    }
+    if (file.size > MAX_IMAGE_SIZE) { toast.error(t("wizard.imageTooBig")); return; }
     setSelectedImageFile(file);
     setImagePreview(URL.createObjectURL(file));
   }
@@ -124,12 +183,38 @@ export function AddItemWizard({
     const ext = file.name.split(".").pop() ?? "jpg";
     const path = `custom/${crypto.randomUUID()}.${ext}`;
     const { error } = await supabase.storage.from("fabric-images").upload(path, file, {
-      cacheControl: "3600",
-      upsert: false,
+      cacheControl: "3600", upsert: false,
     });
     if (error) return null;
     const { data } = supabase.storage.from("fabric-images").getPublicUrl(path);
     return data.publicUrl;
+  }
+
+  function handleSaveNewLocation() {
+    if (!newLocNameEn.trim()) return;
+    startLocationTransition(async () => {
+      const result = await addHotelLocationAction(hotelId, {
+        nameEn: newLocNameEn.trim(),
+        nameAr: newLocNameAr.trim() || undefined,
+      });
+      if (result.success && result.data) {
+        const newLoc: HotelLocation = {
+          id: result.data.id,
+          nameEn: result.data.nameEn,
+          nameAr: result.data.nameAr,
+          hotelId,
+          address: null,
+        };
+        setLocalLocations((prev) => [...prev, newLoc]);
+        form.setValue("locationId", newLoc.id);
+        setShowNewLocation(false);
+        setNewLocNameEn("");
+        setNewLocNameAr("");
+        toast.success(t("wizard.locationAddedSuccess"));
+      } else {
+        toast.error(!result.success ? result.error : t("wizard.locationAddFailed"));
+      }
+    });
   }
 
   const searchLower = fabricSearch.toLowerCase();
@@ -150,6 +235,7 @@ export function AddItemWizard({
     setPickedFabric(fabric);
     form.setValue("fabricId", fabric.id ?? "");
     form.setValue("customFabricName", "");
+    form.setValue("customFabricCode", "");
     form.setValue("unit", fabric.unit);
     form.setValue("source", selectedSource!);
     setSubStep("details");
@@ -159,6 +245,7 @@ export function AddItemWizard({
     setPickedFabric({ id: null, nameEn: "", codeRef: "", unit: "METERS", imageUrl: null });
     form.setValue("fabricId", "");
     form.setValue("customFabricName", "");
+    form.setValue("customFabricCode", "");
     form.setValue("unit", "METERS");
     form.setValue("source", selectedSource!);
     setSubStep("details");
@@ -169,10 +256,7 @@ export function AddItemWizard({
       let customFabricImageUrl: string | undefined;
       if (!pickedFabric?.id && selectedSource === "CLIENT" && selectedImageFile) {
         const url = await uploadImage(selectedImageFile);
-        if (!url) {
-          toast.error(t("wizard.imageUploadFailed"));
-          return;
-        }
+        if (!url) { toast.error(t("wizard.imageUploadFailed")); return; }
         customFabricImageUrl = url;
       }
 
@@ -198,7 +282,7 @@ export function AddItemWizard({
   }
 
   const isWide = subStep === "fabric" || (subStep === "details" && !pickedFabric?.id);
-  const watchedUnit = form.watch("unit");
+  const unitSuffix = (pickedFabric?.unit ?? watchedUnit) === "ROLLS" ? `(${t("unitRolls")})` : `(${t("unitMeters")})`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -211,7 +295,7 @@ export function AddItemWizard({
           </DialogTitle>
         </DialogHeader>
 
-        {/* Source selection */}
+        {/* ── Step 1: Source ── */}
         {subStep === "source" && (
           <div className="space-y-4">
             <div className="flex flex-col gap-2">
@@ -233,14 +317,12 @@ export function AddItemWizard({
               ))}
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                {tc("cancel")}
-              </Button>
+              <Button variant="outline" onClick={() => onOpenChange(false)}>{tc("cancel")}</Button>
             </DialogFooter>
           </div>
         )}
 
-        {/* Fabric selection */}
+        {/* ── Step 2: Fabric ── */}
         {subStep === "fabric" && (
           <div className="space-y-3">
             <div className="relative">
@@ -273,11 +355,8 @@ export function AddItemWizard({
                       }
                       onClick={() =>
                         handleFabricPick({
-                          id: sf.fabricId,
-                          nameEn: sf.nameEn,
-                          codeRef: sf.codeRef,
-                          unit: sf.unit as "METERS" | "ROLLS",
-                          imageUrl: sf.imageUrl,
+                          id: sf.fabricId, nameEn: sf.nameEn, codeRef: sf.codeRef,
+                          unit: sf.unit as "METERS" | "ROLLS", imageUrl: sf.imageUrl,
                         })
                       }
                     />
@@ -318,13 +397,13 @@ export function AddItemWizard({
           </div>
         )}
 
-        {/* Item details */}
+        {/* ── Step 3: Details ── */}
         {subStep === "details" && (
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
               <div className="space-y-4 max-h-[62vh] overflow-y-auto pe-0.5 pb-1">
 
-                {/* Fabric section */}
+                {/* Fabric card / custom fabric section */}
                 {pickedFabric?.id ? (
                   <div className="flex items-center gap-3 rounded-xl border bg-muted/40 px-3.5 py-3">
                     <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-muted shrink-0 border">
@@ -346,7 +425,27 @@ export function AddItemWizard({
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                       {t("wizard.customFabricLabel")}
                     </p>
-                    <div className="grid grid-cols-[1fr_112px] gap-3 items-start">
+
+                    {/* Code + Name + Unit row */}
+                    <div className="grid grid-cols-[112px_1fr_96px] gap-3 items-start">
+                      <FormField
+                        control={form.control}
+                        name="customFabricCode"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t("wizard.customFabricCode")}</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder={t("wizard.customFabricCodePlaceholder")}
+                                className="font-mono"
+                                {...field}
+                                value={field.value ?? ""}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                       <FormField
                         control={form.control}
                         name="customFabricName"
@@ -367,9 +466,7 @@ export function AddItemWizard({
                           <FormItem>
                             <FormLabel>{t("wizard.unit")}</FormLabel>
                             <Select onValueChange={field.onChange} value={field.value}>
-                              <FormControl>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                              </FormControl>
+                              <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                               <SelectContent>
                                 <SelectItem value="METERS">{t("unitMeters")}</SelectItem>
                                 <SelectItem value="ROLLS">{t("unitRolls")}</SelectItem>
@@ -392,8 +489,7 @@ export function AddItemWizard({
                             <Image src={imagePreview} alt="" fill className="object-cover" unoptimized />
                             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                               <span className="flex items-center gap-1.5 text-white text-sm font-medium">
-                                <Upload className="h-4 w-4" />
-                                {t("wizard.changeImage")}
+                                <Upload className="h-4 w-4" />{t("wizard.changeImage")}
                               </span>
                             </div>
                             <button
@@ -433,7 +529,7 @@ export function AddItemWizard({
 
                 <div className="border-t" />
 
-                {/* Item details */}
+                {/* Item type */}
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -463,47 +559,232 @@ export function AddItemWizard({
                   />
                 </div>
 
+                {/* Dimension fields — CLIENT / DIRECT only */}
+                {isNonInventory && (
+                  <div className="rounded-xl border bg-muted/10 p-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Calculator className="h-3.5 w-3.5 text-muted-foreground" />
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        {t("wizard.dimensionsLabel")}
+                      </p>
+                    </div>
+
+                    {/* Item count + width + height */}
+                    <div className="grid grid-cols-3 gap-3">
+                      <FormField
+                        control={form.control}
+                        name="itemCount"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t("wizard.itemCount")}</FormLabel>
+                            <FormControl>
+                              <Input type="number" onWheel={(e) => e.currentTarget.blur()} min="1" step="1" placeholder="0" {...field} value={field.value ?? ""} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="itemWidth"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t("wizard.itemWidth")} (m)</FormLabel>
+                            <FormControl>
+                              <Input type="number" onWheel={(e) => e.currentTarget.blur()} min="0" step="0.001" placeholder="0.00" {...field} value={field.value ?? ""} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="itemHeight"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t("wizard.itemHeight")} (m)</FormLabel>
+                            <FormControl>
+                              <Input type="number" onWheel={(e) => e.currentTarget.blur()} min="0" step="0.001" placeholder="0.00" {...field} value={field.value ?? ""} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    {/* Total supplied + production loss */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <FormField
+                        control={form.control}
+                        name="totalSupplied"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t("wizard.totalSupplied")} {unitSuffix}</FormLabel>
+                            <FormControl>
+                              <Input type="number" onWheel={(e) => e.currentTarget.blur()} min="0" step="0.001" placeholder="0.000" {...field} value={field.value ?? ""} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="productionLoss"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t("wizard.productionLoss")} {unitSuffix}</FormLabel>
+                            <FormControl>
+                              <Input type="number" onWheel={(e) => e.currentTarget.blur()} min="0" step="0.001" placeholder="0.000" {...field} value={field.value ?? ""} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    {/* Live calculation results */}
+                    {calculatedQty !== null && (
+                      <div className="rounded-lg bg-muted/50 border px-3 py-2.5 space-y-1.5 text-sm">
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">{t("wizard.fabricNeeded")}</span>
+                          <span className="font-semibold tabular-nums">
+                            {calculatedQty.toLocaleString()} {watchedUnit === "ROLLS" ? t("unitRolls") : t("unitMeters")}
+                          </span>
+                        </div>
+                        {Number(watchedProductionLoss) > 0 && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-muted-foreground">{t("wizard.productionLoss")}</span>
+                            <span className="font-semibold tabular-nums text-amber-600">
+                              {Number(watchedProductionLoss).toLocaleString()} {watchedUnit === "ROLLS" ? t("unitRolls") : t("unitMeters")}
+                            </span>
+                          </div>
+                        )}
+                        {calculatedLeftover !== null && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-muted-foreground">{t("wizard.fabricLeftover")}</span>
+                            <span className={cn("font-semibold tabular-nums", calculatedLeftover < 0 ? "text-destructive" : "text-green-600")}>
+                              {calculatedLeftover.toLocaleString()} {watchedUnit === "ROLLS" ? t("unitRolls") : t("unitMeters")}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Quantity — auto-filled for non-inventory when dims are set, else manual */}
                 <FormField
                   control={form.control}
                   name="quantityNeeded"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>
-                        {t("quantityNeeded")}{" "}
-                        {(pickedFabric?.unit ?? watchedUnit) === "ROLLS" ? `(${t("unitRolls")})` : `(${t("unitMeters")})`}
+                        {t("quantityNeeded")} {unitSuffix}
+                        {isNonInventory && calculatedQty !== null && (
+                          <span className="ms-1 text-xs text-muted-foreground">({t("wizard.autoCalculated")})</span>
+                        )}
                       </FormLabel>
                       <FormControl>
-                        <Input type="number" min="0" step="0.001" placeholder="0" {...field} />
+                        <Input
+                          type="number" onWheel={(e) => e.currentTarget.blur()} min="0" step="0.001" placeholder="0"
+                          readOnly={isNonInventory && calculatedQty !== null}
+                          className={cn(isNonInventory && calculatedQty !== null && "bg-muted text-muted-foreground")}
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
 
-                {locations.length > 0 && (
-                  <FormField
-                    control={form.control}
-                    name="locationId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t("location")}</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value ?? ""}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder={t("selectLocation")} />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {locations.map((loc) => (
-                              <SelectItem key={loc.id} value={loc.id}>{loc.nameEn}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
+                {/* Location */}
+                <div className="space-y-2">
+                  {localLocations.length > 0 && !showNewLocation && (
+                    <FormField
+                      control={form.control}
+                      name="locationId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t("location")}</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value ?? ""}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder={t("selectLocation")} />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {localLocations.map((loc) => (
+                                <SelectItem key={loc.id} value={loc.id}>{loc.nameEn}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+
+                  {!showNewLocation ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 text-xs text-muted-foreground hover:text-foreground -ms-1"
+                      onClick={() => setShowNewLocation(true)}
+                    >
+                      <MapPin className="h-3.5 w-3.5 me-1.5" />
+                      {t("wizard.addNewLocation")}
+                    </Button>
+                  ) : (
+                    <div className="rounded-lg border bg-muted/20 p-3 space-y-2">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                        {t("wizard.newLocation")}
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium">{t("wizard.locationNameEn")}</label>
+                          <Input
+                            value={newLocNameEn}
+                            onChange={(e) => setNewLocNameEn(e.target.value)}
+                            placeholder={t("wizard.locationNameEnPlaceholder")}
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium">{t("wizard.locationNameAr")}</label>
+                          <Input
+                            dir="rtl"
+                            value={newLocNameAr}
+                            onChange={(e) => setNewLocNameAr(e.target.value)}
+                            placeholder="مثال: الجناح 301"
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-2 justify-end">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => { setShowNewLocation(false); setNewLocNameEn(""); setNewLocNameAr(""); }}
+                        >
+                          {tc("cancel")}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-7 text-xs"
+                          disabled={!newLocNameEn.trim() || isSavingLocation}
+                          onClick={handleSaveNewLocation}
+                        >
+                          {isSavingLocation ? <Loader2 className="h-3 w-3 animate-spin me-1" /> : <Plus className="h-3 w-3 me-1" />}
+                          {t("wizard.saveLocation")}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 <FormField
                   control={form.control}
@@ -538,7 +819,12 @@ export function AddItemWizard({
                 <Button
                   type="button"
                   variant="ghost"
-                  onClick={() => { setSubStep("fabric"); setPickedFabric(null); setSelectedImageFile(null); setImagePreview(null); }}
+                  onClick={() => {
+                    setSubStep("fabric");
+                    setPickedFabric(null);
+                    setSelectedImageFile(null);
+                    setImagePreview(null);
+                  }}
                 >
                   ← {tc("back")}
                 </Button>

@@ -24,6 +24,7 @@ import type { HotelLocation } from "@/domain/hotel";
 
 type Props = {
   projectId: string;
+  hotelId: string;
   items: ProjectItem[];
   fabrics: FabricSummary[];
   stockSummary: FabricStockSummary[];
@@ -36,7 +37,7 @@ const SOURCE_VARIANT: Record<SupplySource, "default" | "secondary" | "outline"> 
   DIRECT: "outline",
 };
 
-export function ProjectItemsTab({ projectId, items, fabrics, stockSummary, locations }: Props) {
+export function ProjectItemsTab({ projectId, hotelId, items, fabrics, stockSummary, locations }: Props) {
   const t = useTranslations("projects");
   const tc = useTranslations("common");
 
@@ -83,6 +84,9 @@ export function ProjectItemsTab({ projectId, items, fabrics, stockSummary, locat
                 <TableHead>{t("itemType")}</TableHead>
                 <TableHead>{t("location")}</TableHead>
                 <TableHead className="text-end">{t("quantityNeeded")}</TableHead>
+                <TableHead className="text-end">{t("wizard.itemCount")}</TableHead>
+                <TableHead className="text-end">{t("wizard.productionLoss")}</TableHead>
+                <TableHead className="text-end">{t("wizard.fabricLeftover")}</TableHead>
                 <TableHead>{t("sourceLabel")}</TableHead>
                 <TableHead className="text-end">{tc("actions")}</TableHead>
               </TableRow>
@@ -93,7 +97,7 @@ export function ProjectItemsTab({ projectId, items, fabrics, stockSummary, locat
                 const unitLabel = item.unit === "METERS" ? t("unitMeters") : t("unitRolls");
                 return (
                   <TableRow key={item.id}>
-                    <TableCell className="font-mono text-sm">{item.fabric?.codeRef ?? "—"}</TableCell>
+                    <TableCell className="font-mono text-sm">{item.fabric?.codeRef ?? item.customFabricCode ?? "—"}</TableCell>
                     <TableCell>
                       <div className="font-medium">{item.fabric?.nameEn ?? item.customFabricName ?? "—"}</div>
                       {item.fabric?.nameAr && (
@@ -109,6 +113,15 @@ export function ProjectItemsTab({ projectId, items, fabrics, stockSummary, locat
                     <TableCell className="text-muted-foreground text-sm">{locationLabel}</TableCell>
                     <TableCell className="text-end font-medium">
                       {item.quantityNeeded.toLocaleString()} {unitLabel}
+                    </TableCell>
+                    <TableCell className="text-end text-muted-foreground text-sm">
+                      {item.itemCount != null ? item.itemCount.toLocaleString() : "—"}
+                    </TableCell>
+                    <TableCell className={`text-end text-sm font-medium ${item.productionLoss != null && item.productionLoss > 0 ? "text-amber-600" : "text-muted-foreground"}`}>
+                      {item.productionLoss != null ? `${item.productionLoss.toLocaleString()} ${unitLabel}` : "—"}
+                    </TableCell>
+                    <TableCell className={`text-end text-sm font-medium ${item.fabricLeftover != null && item.fabricLeftover < 0 ? "text-destructive" : item.fabricLeftover != null ? "text-green-600" : "text-muted-foreground"}`}>
+                      {item.fabricLeftover != null ? `${item.fabricLeftover.toLocaleString()} ${unitLabel}` : "—"}
                     </TableCell>
                     <TableCell>
                       <Badge variant={SOURCE_VARIANT[item.source]}>
@@ -148,6 +161,7 @@ export function ProjectItemsTab({ projectId, items, fabrics, stockSummary, locat
         open={addOpen}
         onOpenChange={setAddOpen}
         projectId={projectId}
+        hotelId={hotelId}
         fabrics={fabrics}
         stockSummary={stockSummary}
         locations={locations}

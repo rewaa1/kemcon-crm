@@ -5,12 +5,14 @@ import type {
   Project,
   ProjectSummary,
   ProjectItem,
+  ProjectItemStage,
   ProjectStatus,
   SupplySource,
   CreateProjectInput,
   UpdateProjectInput,
   AddProjectItemInput,
   UpdateProjectItemInput,
+  AddProjectItemStageInput,
   MaterialUsageRow,
 } from "@/domain/project";
 
@@ -18,10 +20,27 @@ const hotelSelect = { select: { id: true, nameEn: true, nameAr: true } };
 const fabricSelect = { select: { id: true, codeRef: true, nameEn: true, nameAr: true, unit: true } };
 const locationSelect = { select: { id: true, nameEn: true, nameAr: true } };
 
+function mapStage(stage: any): ProjectItemStage {
+  return {
+    id: stage.id,
+    projectItemId: stage.projectItemId,
+    quantity: stage.quantity,
+    stageDate: stage.stageDate,
+    notes: stage.notes,
+    createdAt: stage.createdAt,
+  };
+}
+
 function mapItem(item: any): ProjectItem {
   return {
     ...item,
     quantityNeeded: Number(item.quantityNeeded),
+    itemWidth: item.itemWidth != null ? Number(item.itemWidth) : null,
+    itemHeight: item.itemHeight != null ? Number(item.itemHeight) : null,
+    totalSupplied: item.totalSupplied != null ? Number(item.totalSupplied) : null,
+    productionLoss: item.productionLoss != null ? Number(item.productionLoss) : null,
+    fabricLeftover: item.fabricLeftover != null ? Number(item.fabricLeftover) : null,
+    stages: Array.isArray(item.stages) ? item.stages.map(mapStage) : [],
   };
 }
 
@@ -35,6 +54,7 @@ function mapProject(project: any): Project {
 const itemInclude = {
   fabric: fabricSelect,
   location: locationSelect,
+  stages: { orderBy: { stageDate: "asc" as const } },
 };
 
 export class ProjectRepository implements IProjectRepository {
@@ -118,6 +138,7 @@ export class ProjectRepository implements IProjectRepository {
           projectId,
           fabricId: data.fabricId || undefined,
           customFabricName: data.customFabricName || undefined,
+          customFabricCode: data.customFabricCode || null,
           customFabricImageUrl: data.customFabricImageUrl || null,
           itemTypeEn: data.itemTypeEn,
           itemTypeAr: data.itemTypeAr ?? null,
@@ -127,6 +148,12 @@ export class ProjectRepository implements IProjectRepository {
           unit: data.unit as any,
           source: data.source as any,
           notes: data.notes ?? null,
+          itemCount: data.itemCount ?? null,
+          itemWidth: data.itemWidth ?? null,
+          itemHeight: data.itemHeight ?? null,
+          totalSupplied: data.totalSupplied ?? null,
+          productionLoss: data.productionLoss ?? null,
+          fabricLeftover: data.fabricLeftover ?? null,
         },
         include: itemInclude,
       });
@@ -256,6 +283,12 @@ export class ProjectRepository implements IProjectRepository {
           ...(data.locationNoteEn !== undefined && { locationNoteEn: data.locationNoteEn || null }),
           ...(data.quantityNeeded !== undefined && { quantityNeeded: data.quantityNeeded }),
           ...(data.notes !== undefined && { notes: data.notes || null }),
+          ...(data.itemCount !== undefined && { itemCount: data.itemCount }),
+          ...(data.itemWidth !== undefined && { itemWidth: data.itemWidth }),
+          ...(data.itemHeight !== undefined && { itemHeight: data.itemHeight }),
+          ...(data.totalSupplied !== undefined && { totalSupplied: data.totalSupplied }),
+          ...(data.productionLoss !== undefined && { productionLoss: data.productionLoss }),
+          ...(data.fabricLeftover !== undefined && { fabricLeftover: data.fabricLeftover }),
         },
         include: itemInclude,
       });
@@ -284,6 +317,38 @@ export class ProjectRepository implements IProjectRepository {
     });
   }
 
+  async addItemStage(itemId: string, data: AddProjectItemStageInput): Promise<ProjectItemStage> {
+    return prisma.$transaction(async (tx) => {
+      const item = await tx.projectItem.findUniqueOrThrow({
+        where: { id: itemId },
+        select: { itemCount: true, stages: { select: { quantity: true } } },
+      });
+
+      if (item.itemCount != null) {
+        const alreadyDone = item.stages.reduce((sum, s) => sum + s.quantity, 0);
+        if (alreadyDone + data.quantity > item.itemCount) {
+          const remaining = item.itemCount - alreadyDone;
+          throw new Error(`Only ${remaining} piece(s) remaining for this item`);
+        }
+      }
+
+      const stage = await tx.projectItemStage.create({
+        data: {
+          projectItemId: itemId,
+          quantity: data.quantity,
+          stageDate: data.stageDate ? new Date(data.stageDate) : new Date(),
+          notes: data.notes || null,
+        },
+      });
+
+      return mapStage(stage);
+    });
+  }
+
+  async deleteItemStage(stageId: string): Promise<void> {
+    await prisma.projectItemStage.delete({ where: { id: stageId } });
+  }
+
   async getMaterialUsageReport(): Promise<MaterialUsageRow[]> {
     const items = await prisma.projectItem.findMany({
       include: {
@@ -307,7 +372,7 @@ export class ProjectRepository implements IProjectRepository {
       hotelNameEn: item.project.hotel.nameEn,
       hotelNameAr: item.project.hotel.nameAr,
       fabricId: item.fabric?.id ?? null,
-      fabricCodeRef: item.fabric?.codeRef ?? "—",
+      fabricCodeRef: item.fabric?.codeRef ?? item.customFabricCode ?? "—",
       fabricNameEn: item.fabric?.nameEn ?? (item.customFabricName || "Custom"),
       fabricNameAr: item.fabric?.nameAr ?? null,
       fabricUnit: item.fabric?.unit ?? item.unit,

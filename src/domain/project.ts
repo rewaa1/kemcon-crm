@@ -1,6 +1,15 @@
 export type ProjectStatus = "DRAFT" | "CONFIRMED" | "IN_PRODUCTION" | "DELIVERED";
 export type SupplySource = "INVENTORY" | "CLIENT" | "DIRECT";
 
+export type ProjectItemStage = {
+  id: string;
+  projectItemId: string;
+  quantity: number;
+  stageDate: Date;
+  notes: string | null;
+  createdAt: Date;
+};
+
 export type ProjectItem = {
   id: string;
   projectId: string;
@@ -13,6 +22,7 @@ export type ProjectItem = {
     unit: string;
   } | null;
   customFabricName: string | null;
+  customFabricCode: string | null;
   customFabricImageUrl: string | null;
   itemTypeEn: string;
   itemTypeAr: string | null;
@@ -23,6 +33,13 @@ export type ProjectItem = {
   unit: string;
   source: SupplySource;
   notes: string | null;
+  itemCount: number | null;
+  itemWidth: number | null;
+  itemHeight: number | null;
+  totalSupplied: number | null;
+  productionLoss: number | null;
+  fabricLeftover: number | null;
+  stages: ProjectItemStage[];
 };
 
 export type Project = {
@@ -66,6 +83,7 @@ export type UpdateProjectInput = Partial<CreateProjectInput>;
 export type AddProjectItemInput = {
   fabricId?: string | null;
   customFabricName?: string;
+  customFabricCode?: string;
   customFabricImageUrl?: string;
   itemTypeEn: string;
   itemTypeAr?: string;
@@ -75,6 +93,12 @@ export type AddProjectItemInput = {
   unit: string;
   source: SupplySource;
   notes?: string;
+  itemCount?: number;
+  itemWidth?: number;
+  itemHeight?: number;
+  totalSupplied?: number;
+  productionLoss?: number;
+  fabricLeftover?: number;
 };
 
 export type UpdateProjectItemInput = {
@@ -83,6 +107,18 @@ export type UpdateProjectItemInput = {
   locationId?: string;
   locationNoteEn?: string;
   quantityNeeded?: number;
+  notes?: string;
+  itemCount?: number;
+  itemWidth?: number;
+  itemHeight?: number;
+  totalSupplied?: number;
+  productionLoss?: number;
+  fabricLeftover?: number;
+};
+
+export type AddProjectItemStageInput = {
+  quantity: number;
+  stageDate?: string;
   notes?: string;
 };
 
@@ -116,6 +152,8 @@ export interface IProjectRepository {
   addItem(projectId: string, data: AddProjectItemInput): Promise<ProjectItem>;
   updateItem(itemId: string, data: UpdateProjectItemInput): Promise<ProjectItem>;
   deleteItem(itemId: string): Promise<void>;
+  addItemStage(itemId: string, data: AddProjectItemStageInput): Promise<ProjectItemStage>;
+  deleteItemStage(stageId: string): Promise<void>;
   delete(id: string): Promise<void>;
   getMaterialUsageReport(): Promise<MaterialUsageRow[]>;
 }
