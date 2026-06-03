@@ -1,5 +1,12 @@
 import { prisma } from "@/lib/prisma";
-import { ProjectNotFoundError, InsufficientStockError } from "@/domain/errors";
+import { Prisma } from "@prisma/client";
+import {
+  ProjectNotFoundError,
+  InsufficientStockError,
+  ProjectNotDeletableError,
+  StageExceedsRemainingError,
+  ItemCountBelowDeliveredError,
+} from "@/domain/errors";
 import type {
   IProjectRepository,
   Project,
@@ -58,6 +65,37 @@ const itemInclude = {
 };
 
 export class ProjectRepository implements IProjectRepository {
+  /**
+   * Keeps the project status in sync with its delivery progress:
+   * - fully delivered (every item has a piece count and all pieces delivered) → DELIVERED
+   * - no longer fully delivered while marked DELIVERED → reverts to IN_PRODUCTION
+   * Manual statuses (DRAFT/CONFIRMED/IN_PRODUCTION) are otherwise left untouched.
+   */
+  private async syncDeliveryStatus(tx: Prisma.TransactionClient, projectId: string): Promise<void> {
+    const [project, items] = await Promise.all([
+      tx.project.findUnique({ where: { id: projectId }, select: { status: true } }),
+      tx.projectItem.findMany({
+        where: { projectId },
+        select: { itemCount: true, stages: { select: { quantity: true } } },
+      }),
+    ]);
+    if (!project) return;
+
+    const fullyDelivered =
+      items.length > 0 &&
+      items.every((i) => {
+        if (i.itemCount == null) return false;
+        const delivered = i.stages.reduce((sum, s) => sum + s.quantity, 0);
+        return delivered >= i.itemCount;
+      });
+
+    if (fullyDelivered && project.status !== "DELIVERED") {
+      await tx.project.update({ where: { id: projectId }, data: { status: "DELIVERED" } });
+    } else if (!fullyDelivered && project.status === "DELIVERED") {
+      await tx.project.update({ where: { id: projectId }, data: { status: "IN_PRODUCTION" } });
+    }
+  }
+
   async findAll(): Promise<ProjectSummary[]> {
     return prisma.project.findMany({
       orderBy: { createdAt: "desc" },
@@ -195,6 +233,9 @@ export class ProjectRepository implements IProjectRepository {
         }
       }
 
+      // A new item with deliveries pending can un-complete a DELIVERED project.
+      await this.syncDeliveryStatus(tx, projectId);
+
       return mapItem(item);
     });
   }
@@ -203,8 +244,22 @@ export class ProjectRepository implements IProjectRepository {
     return prisma.$transaction(async (tx) => {
       const existing = await tx.projectItem.findUniqueOrThrow({
         where: { id: itemId },
-        select: { quantityNeeded: true, source: true, fabricId: true },
+        select: {
+          projectId: true,
+          quantityNeeded: true,
+          source: true,
+          fabricId: true,
+          stages: { select: { quantity: true } },
+        },
       });
+
+      // Can't drop the piece count below what's already been delivered.
+      if (data.itemCount != null) {
+        const delivered = existing.stages.reduce((sum, s) => sum + s.quantity, 0);
+        if (data.itemCount < delivered) {
+          throw new ItemCountBelowDeliveredError(delivered);
+        }
+      }
 
       const oldQty = Number(existing.quantityNeeded);
       const newQty = data.quantityNeeded ?? oldQty;
@@ -293,12 +348,20 @@ export class ProjectRepository implements IProjectRepository {
         include: itemInclude,
       });
 
+      // Changing the piece count may complete (or un-complete) the project.
+      await this.syncDeliveryStatus(tx, existing.projectId);
+
       return mapItem(updated);
     });
   }
 
   async deleteItem(itemId: string): Promise<void> {
     await prisma.$transaction(async (tx) => {
+      const item = await tx.projectItem.findUniqueOrThrow({
+        where: { id: itemId },
+        select: { projectId: true },
+      });
+
       const usages = await tx.projectItemUsage.findMany({
         where: { projectItemId: itemId },
         select: { inventoryBatchId: true, quantityUsed: true },
@@ -314,6 +377,9 @@ export class ProjectRepository implements IProjectRepository {
       );
 
       await tx.projectItem.delete({ where: { id: itemId } });
+
+      // Removing an incomplete item can complete the remaining set.
+      await this.syncDeliveryStatus(tx, item.projectId);
     });
   }
 
@@ -321,14 +387,14 @@ export class ProjectRepository implements IProjectRepository {
     return prisma.$transaction(async (tx) => {
       const item = await tx.projectItem.findUniqueOrThrow({
         where: { id: itemId },
-        select: { itemCount: true, stages: { select: { quantity: true } } },
+        select: { projectId: true, itemCount: true, stages: { select: { quantity: true } } },
       });
 
       if (item.itemCount != null) {
         const alreadyDone = item.stages.reduce((sum, s) => sum + s.quantity, 0);
         if (alreadyDone + data.quantity > item.itemCount) {
           const remaining = item.itemCount - alreadyDone;
-          throw new Error(`Only ${remaining} piece(s) remaining for this item`);
+          throw new StageExceedsRemainingError(remaining);
         }
       }
 
@@ -341,12 +407,25 @@ export class ProjectRepository implements IProjectRepository {
         },
       });
 
+      // This delivery may complete the project.
+      await this.syncDeliveryStatus(tx, item.projectId);
+
       return mapStage(stage);
     });
   }
 
   async deleteItemStage(stageId: string): Promise<void> {
-    await prisma.projectItemStage.delete({ where: { id: stageId } });
+    await prisma.$transaction(async (tx) => {
+      const stage = await tx.projectItemStage.findUniqueOrThrow({
+        where: { id: stageId },
+        select: { projectItem: { select: { projectId: true } } },
+      });
+
+      await tx.projectItemStage.delete({ where: { id: stageId } });
+
+      // Removing a delivery can drop the project below "fully delivered".
+      await this.syncDeliveryStatus(tx, stage.projectItem.projectId);
+    });
   }
 
   async getMaterialUsageReport(): Promise<MaterialUsageRow[]> {
@@ -391,7 +470,7 @@ export class ProjectRepository implements IProjectRepository {
     });
     if (!project) throw new ProjectNotFoundError(id);
     if (project.status !== "DRAFT") {
-      throw new Error("Only DRAFT projects can be deleted");
+      throw new ProjectNotDeletableError();
     }
 
     await prisma.$transaction(async (tx) => {

@@ -46,3 +46,21 @@ export class InsufficientStockError extends DomainError {
     super(`Insufficient stock for fabric "${fabricId}": ${shortfall.toFixed(3)} units short`);
   }
 }
+
+export class ProjectNotDeletableError extends DomainError {
+  constructor() {
+    super("Only DRAFT projects can be deleted");
+  }
+}
+
+export class StageExceedsRemainingError extends DomainError {
+  constructor(remaining: number) {
+    super(`Only ${remaining} piece(s) remaining for this item`);
+  }
+}
+
+export class ItemCountBelowDeliveredError extends DomainError {
+  constructor(delivered: number) {
+    super(`Piece count can't be lower than the ${delivered} piece(s) already delivered`);
+  }
+}

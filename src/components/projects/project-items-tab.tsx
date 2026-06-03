@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
-import { Plus, Pencil, Trash2, Layers } from "lucide-react";
+import { Plus, Pencil, Trash2, Layers, Truck, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,7 @@ import {
 import { EmptyState } from "@/components/ui/empty-state";
 import { AddItemWizard } from "./add-item-wizard";
 import { EditProjectItemDialog } from "./edit-project-item-dialog";
+import { ItemDeliveriesDialog } from "./item-deliveries-dialog";
 import { deleteProjectItemAction } from "@/app/[locale]/(dashboard)/projects/[id]/actions";
 import type { ProjectItem, SupplySource } from "@/domain/project";
 import type { FabricSummary } from "@/domain/fabric";
@@ -44,6 +45,9 @@ export function ProjectItemsTab({ projectId, hotelId, items, fabrics, stockSumma
   const [addOpen, setAddOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<ProjectItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ProjectItem | null>(null);
+  // Track by id so the dialog reflects fresh stage data after revalidation.
+  const [deliveryTargetId, setDeliveryTargetId] = useState<string | null>(null);
+  const deliveryTarget = deliveryTargetId ? items.find((i) => i.id === deliveryTargetId) ?? null : null;
   const [isPending, startTransition] = useTransition();
 
   function handleDelete() {
@@ -88,6 +92,7 @@ export function ProjectItemsTab({ projectId, hotelId, items, fabrics, stockSumma
                 <TableHead className="text-end">{t("wizard.productionLoss")}</TableHead>
                 <TableHead className="text-end">{t("wizard.fabricLeftover")}</TableHead>
                 <TableHead>{t("sourceLabel")}</TableHead>
+                <TableHead>{t("deliveries.column")}</TableHead>
                 <TableHead className="text-end">{tc("actions")}</TableHead>
               </TableRow>
             </TableHeader>
@@ -95,6 +100,9 @@ export function ProjectItemsTab({ projectId, hotelId, items, fabrics, stockSumma
               {items.map((item) => {
                 const locationLabel = item.location?.nameEn ?? item.locationNoteEn ?? "—";
                 const unitLabel = item.unit === "METERS" ? t("unitMeters") : t("unitRolls");
+                const total = item.itemCount ?? 0;
+                const delivered = item.stages.reduce((sum, s) => sum + s.quantity, 0);
+                const pct = total > 0 ? Math.min(Math.round((delivered / total) * 100), 100) : 0;
                 return (
                   <TableRow key={item.id}>
                     <TableCell className="font-mono text-sm">{item.fabric?.codeRef ?? item.customFabricCode ?? "—"}</TableCell>
@@ -127,6 +135,34 @@ export function ProjectItemsTab({ projectId, hotelId, items, fabrics, stockSumma
                       <Badge variant={SOURCE_VARIANT[item.source]}>
                         {t(`source.${item.source}`)}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <button
+                        type="button"
+                        onClick={() => setDeliveryTargetId(item.id)}
+                        className="flex items-center gap-2 group"
+                        aria-label={t("deliveries.column")}
+                      >
+                        {item.itemCount != null ? (
+                          <>
+                            <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
+                              <div
+                                className={pct >= 100 ? "h-full bg-green-600" : "h-full bg-primary"}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                            <span className="text-xs tabular-nums text-muted-foreground group-hover:text-foreground">
+                              {delivered.toLocaleString()}/{total.toLocaleString()}
+                            </span>
+                            {pct >= 100 && <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />}
+                          </>
+                        ) : (
+                          <span className="text-xs text-muted-foreground group-hover:text-foreground inline-flex items-center gap-1">
+                            <Truck className="h-3.5 w-3.5" />
+                            {t("deliveries.track")}
+                          </span>
+                        )}
+                      </button>
                     </TableCell>
                     <TableCell>
                       <div className="flex justify-end gap-1">
@@ -174,6 +210,15 @@ export function ProjectItemsTab({ projectId, hotelId, items, fabrics, stockSumma
           projectId={projectId}
           item={editTarget}
           locations={locations}
+        />
+      )}
+
+      {deliveryTarget && (
+        <ItemDeliveriesDialog
+          open={!!deliveryTarget}
+          onOpenChange={(o) => { if (!o) setDeliveryTargetId(null); }}
+          projectId={projectId}
+          item={deliveryTarget}
         />
       )}
 

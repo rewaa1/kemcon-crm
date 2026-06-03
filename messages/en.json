@@ -322,7 +322,31 @@
       "locationNameAr": "Name (AR)",
       "saveLocation": "Save Location",
       "locationAddedSuccess": "Location added",
-      "locationAddFailed": "Failed to add location"
+      "locationAddFailed": "Failed to add location",
+      "pieceCountHint": "Total pieces — needed for staged deliveries"
+    },
+    "deliveries": {
+      "column": "Deliveries",
+      "track": "Track",
+      "title": "Staged Deliveries",
+      "summaryTitle": "Delivery progress",
+      "itemsDelivered": "{done} / {total} items delivered",
+      "untracked": "{count} item(s) without a piece count",
+      "pieces": "pcs",
+      "remaining": "{count} piece(s) remaining",
+      "complete": "Fully delivered",
+      "noPieceCount": "Set a piece count on this item first to track staged deliveries.",
+      "addStage": "Record a delivery",
+      "quantity": "Quantity",
+      "max": "max",
+      "date": "Date",
+      "notesPlaceholder": "Notes (optional)",
+      "record": "Record",
+      "invalidQty": "Enter a valid quantity",
+      "addedSuccess": "Delivery recorded",
+      "deletedSuccess": "Delivery removed",
+      "deleteTitle": "Remove delivery?",
+      "deleteConfirm": "This delivery record will be removed and the delivered count adjusted."
     }
   },
   "inventory": {

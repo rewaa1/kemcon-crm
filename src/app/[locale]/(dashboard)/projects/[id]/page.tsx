@@ -15,6 +15,7 @@ import { getHotels } from "@/application/hotels/queries/get-hotels";
 import { getStockSummary } from "@/application/inventory/queries/get-stock-summary";
 import { ProjectNotFoundError } from "@/domain/errors";
 import { ProjectDetailHeader } from "@/components/projects/project-detail-header";
+import { ProjectDeliverySummary } from "@/components/projects/project-delivery-summary";
 import { ProjectItemsTab } from "@/components/projects/project-items-tab";
 
 const repo = new ProjectRepository();
@@ -58,6 +59,8 @@ export default async function ProjectDetailPage({
         </Button>
         <ProjectDetailHeader project={project} hotels={hotels} locale={locale} />
       </div>
+
+      <ProjectDeliverySummary items={project.items} />
 
       <Tabs defaultValue="items">
         <TabsList>

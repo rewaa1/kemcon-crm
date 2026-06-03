@@ -559,6 +559,27 @@ export function AddItemWizard({
                   />
                 </div>
 
+                {/* Piece count — applies to all sources; enables staged deliveries */}
+                <FormField
+                  control={form.control}
+                  name="itemCount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("wizard.itemCount")}</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number" onWheel={(e) => e.currentTarget.blur()} min="1" step="1" placeholder="0"
+                          className="max-w-40"
+                          {...field}
+                          value={field.value ?? ""}
+                        />
+                      </FormControl>
+                      <p className="text-xs text-muted-foreground">{t("wizard.pieceCountHint")}</p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
                 {/* Dimension fields — CLIENT / DIRECT only */}
                 {isNonInventory && (
                   <div className="rounded-xl border bg-muted/10 p-4 space-y-3">
@@ -569,21 +590,8 @@ export function AddItemWizard({
                       </p>
                     </div>
 
-                    {/* Item count + width + height */}
-                    <div className="grid grid-cols-3 gap-3">
-                      <FormField
-                        control={form.control}
-                        name="itemCount"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>{t("wizard.itemCount")}</FormLabel>
-                            <FormControl>
-                              <Input type="number" onWheel={(e) => e.currentTarget.blur()} min="1" step="1" placeholder="0" {...field} value={field.value ?? ""} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                    {/* Width + height (piece count is captured above) */}
+                    <div className="grid grid-cols-2 gap-3">
                       <FormField
                         control={form.control}
                         name="itemWidth"

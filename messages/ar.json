@@ -322,7 +322,31 @@
       "locationNameAr": "الاسم (AR)",
       "saveLocation": "حفظ الموقع",
       "locationAddedSuccess": "تم إضافة الموقع",
-      "locationAddFailed": "فشل إضافة الموقع"
+      "locationAddFailed": "فشل إضافة الموقع",
+      "pieceCountHint": "إجمالي القطع — مطلوب لتتبع التسليم على مراحل"
+    },
+    "deliveries": {
+      "column": "التسليمات",
+      "track": "تتبع",
+      "title": "التسليم على مراحل",
+      "summaryTitle": "تقدّم التسليم",
+      "itemsDelivered": "تم تسليم {done} / {total} بند",
+      "untracked": "{count} بند بدون عدد قطع",
+      "pieces": "قطعة",
+      "remaining": "متبقّي {count} قطعة",
+      "complete": "تم التسليم بالكامل",
+      "noPieceCount": "حدّد عدد القطع لهذا البند أولاً لتتبع التسليم على مراحل.",
+      "addStage": "تسجيل تسليم",
+      "quantity": "الكمية",
+      "max": "الحد الأقصى",
+      "date": "التاريخ",
+      "notesPlaceholder": "ملاحظات (اختياري)",
+      "record": "تسجيل",
+      "invalidQty": "أدخل كمية صحيحة",
+      "addedSuccess": "تم تسجيل التسليم",
+      "deletedSuccess": "تم حذف التسليم",
+      "deleteTitle": "حذف التسليم؟",
+      "deleteConfirm": "سيتم حذف سجل التسليم هذا وتعديل عدد القطع المُسلَّمة."
     }
   },
   "inventory": {
