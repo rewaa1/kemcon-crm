@@ -24,6 +24,7 @@ export type ProjectItem = {
   customFabricName: string | null;
   customFabricCode: string | null;
   customFabricImageUrl: string | null;
+  itemCategory: string | null;
   itemTypeEn: string;
   itemTypeAr: string | null;
   locationId: string | null;
@@ -36,6 +37,10 @@ export type ProjectItem = {
   itemCount: number | null;
   itemWidth: number | null;
   itemHeight: number | null;
+  itemDepth: number | null;
+  metersPerUnit: number | null;
+  bedType: string | null;
+  trackControl: string | null;
   totalSupplied: number | null;
   productionLoss: number | null;
   fabricLeftover: number | null;
@@ -85,6 +90,7 @@ export type AddProjectItemInput = {
   customFabricName?: string;
   customFabricCode?: string;
   customFabricImageUrl?: string;
+  itemCategory?: string;
   itemTypeEn: string;
   itemTypeAr?: string;
   locationId?: string;
@@ -96,12 +102,17 @@ export type AddProjectItemInput = {
   itemCount?: number;
   itemWidth?: number;
   itemHeight?: number;
+  itemDepth?: number;
+  metersPerUnit?: number;
+  bedType?: string;
+  trackControl?: string;
   totalSupplied?: number;
   productionLoss?: number;
   fabricLeftover?: number;
 };
 
 export type UpdateProjectItemInput = {
+  itemCategory?: string;
   itemTypeEn?: string;
   itemTypeAr?: string;
   locationId?: string;
@@ -111,6 +122,10 @@ export type UpdateProjectItemInput = {
   itemCount?: number;
   itemWidth?: number;
   itemHeight?: number;
+  itemDepth?: number;
+  metersPerUnit?: number;
+  bedType?: string;
+  trackControl?: string;
   totalSupplied?: number;
   productionLoss?: number;
   fabricLeftover?: number;

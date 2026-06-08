@@ -17,12 +17,25 @@ export const projectStatusSchema = z.object({
   status: z.enum(["DRAFT", "CONFIRMED", "IN_PRODUCTION", "DELIVERED"]),
 });
 
+export const itemCategorySchema = z.enum([
+  "CURTAINS",
+  "PILLOWS",
+  "BED_COVERS",
+  "CHAIRS",
+  "SOFAS",
+  "OTHER",
+]);
+
 export const projectItemSchema = z.object({
   fabricId: z.string().nullish(),
   customFabricName: z.string().optional(),
   customFabricCode: z.string().optional(),
-  itemTypeEn: z.string().min(1, "Item type is required"),
+  itemCategory: itemCategorySchema,
+  // Custom label (OTHER only) — for fixed categories the label is derived from the category.
+  itemTypeEn: z.string().optional(),
   itemTypeAr: z.string().optional(),
+  // Free-text type detail for bed covers / chairs / sofas (e.g. "King bed").
+  typeDetail: z.string().optional(),
   locationId: z.string().optional(),
   locationNoteEn: z.string().optional(),
   quantityNeeded: z.coerce.number().positive("Must be greater than 0"),
@@ -32,12 +45,19 @@ export const projectItemSchema = z.object({
   itemCount: z.coerce.number().int().positive().optional(),
   itemWidth: z.coerce.number().positive().optional(),
   itemHeight: z.coerce.number().positive().optional(),
+  itemDepth: z.coerce.number().positive().optional(),
+  metersPerUnit: z.coerce.number().positive().optional(),
+  bedType: z.string().optional(),
+  trackControl: z.enum(["MANUAL", "REMOTE"]).optional(),
   totalSupplied: z.coerce.number().positive().optional(),
   productionLoss: z.coerce.number().nonnegative().optional(),
   fabricLeftover: z.coerce.number().optional(),
 }).refine(
   (d) => (d.fabricId && d.fabricId.length > 0) || (d.customFabricName && d.customFabricName.trim().length > 0),
   { message: "Select a fabric or enter a custom fabric name", path: ["customFabricName"] }
+).refine(
+  (d) => d.itemCategory !== "OTHER" || (d.itemTypeEn != null && d.itemTypeEn.trim().length > 0),
+  { message: "Item type is required", path: ["itemTypeEn"] }
 );
 
 export const projectItemStageSchema = z.object({

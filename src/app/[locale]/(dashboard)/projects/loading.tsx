@@ -12,6 +12,12 @@ export default function ProjectsLoading() {
       <div className="flex justify-end">
         <Skeleton className="h-10 w-36" />
       </div>
+      <div className="flex flex-wrap gap-2">
+        <Skeleton className="h-9 w-full max-w-xs" />
+        <Skeleton className="h-9 w-36" />
+        <Skeleton className="h-9 w-36" />
+        <Skeleton className="h-9 w-36" />
+      </div>
       <div className="rounded-md border">
         <div className="p-4 space-y-3">
           {Array.from({ length: 6 }).map((_, i) => (

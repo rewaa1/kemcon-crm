@@ -26,6 +26,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { projectItemSchema, type ProjectItemFormValues } from "@/application/projects/schemas";
 import {
+  ITEM_CATEGORIES,
+  CATEGORY_FIELDS,
+  CATEGORY_DEFAULT_METERS_PER_UNIT,
+  TRACK_CONTROLS,
+  BED_TYPES,
+  bedDimensions,
+  computeItemQuantity,
+  buildItemTypeLabels,
+  type ItemCategory,
+} from "@/lib/item-fabric-calc";
+import {
   addProjectItemAction,
   addHotelLocationAction,
 } from "@/app/[locale]/(dashboard)/projects/[id]/actions";
@@ -96,31 +107,39 @@ export function AddItemWizard({
     resolver: zodResolver(projectItemSchema) as Resolver<ProjectItemFormValues>,
     defaultValues: {
       fabricId: "", customFabricName: "", customFabricCode: "",
-      itemTypeEn: "", itemTypeAr: "",
+      itemCategory: "CURTAINS", itemTypeEn: "", itemTypeAr: "", typeDetail: "",
       locationId: "", locationNoteEn: "", quantityNeeded: 0,
       unit: "METERS", source: "INVENTORY", notes: "",
       itemCount: undefined, itemWidth: undefined, itemHeight: undefined,
+      itemDepth: undefined, metersPerUnit: undefined,
+      bedType: "", trackControl: "MANUAL",
       totalSupplied: undefined, productionLoss: undefined, fabricLeftover: undefined,
     },
   });
 
-  // Watch dimension fields for live calculation
+  // Watch fields for live calculation
+  const watchedCategory = (useWatch({ control: form.control, name: "itemCategory" }) ?? "CURTAINS") as ItemCategory;
   const watchedItemCount = useWatch({ control: form.control, name: "itemCount" });
   const watchedWidth = useWatch({ control: form.control, name: "itemWidth" });
   const watchedHeight = useWatch({ control: form.control, name: "itemHeight" });
+  const watchedMetersPerUnit = useWatch({ control: form.control, name: "metersPerUnit" });
   const watchedTotalSupplied = useWatch({ control: form.control, name: "totalSupplied" });
   const watchedProductionLoss = useWatch({ control: form.control, name: "productionLoss" });
   const watchedUnit = form.watch("unit");
 
   const isNonInventory = selectedSource === "CLIENT" || selectedSource === "DIRECT";
+  const categoryFields = CATEGORY_FIELDS[watchedCategory];
 
-  const calculatedQty = useMemo(() => {
-    const count = Number(watchedItemCount) || 0;
-    const w = Number(watchedWidth) || 0;
-    const h = Number(watchedHeight) || 0;
-    if (count > 0 && w > 0 && h > 0) return parseFloat((count * w * h).toFixed(3));
-    return null;
-  }, [watchedItemCount, watchedWidth, watchedHeight]);
+  const calculatedQty = useMemo(
+    () =>
+      computeItemQuantity(watchedCategory, {
+        count: watchedItemCount,
+        width: watchedWidth,
+        height: watchedHeight,
+        metersPerUnit: watchedMetersPerUnit,
+      }),
+    [watchedCategory, watchedItemCount, watchedWidth, watchedHeight, watchedMetersPerUnit],
+  );
 
   // Leftovers = Total Supplied − Fabric Needed − Production Loss
   const calculatedLeftover = useMemo(() => {
@@ -132,15 +151,24 @@ export function AddItemWizard({
     return null;
   }, [calculatedQty, watchedTotalSupplied, watchedProductionLoss]);
 
-  // Auto-fill quantityNeeded when dimensions produce a valid calc
+  // Auto-fill quantityNeeded from the category formula (stays editable)
   useEffect(() => {
-    if (calculatedQty !== null && isNonInventory) {
+    if (calculatedQty !== null) {
       form.setValue("quantityNeeded", calculatedQty);
-      if (calculatedLeftover !== null) {
+      if (isNonInventory && calculatedLeftover !== null) {
         form.setValue("fabricLeftover", calculatedLeftover);
       }
     }
-  }, [calculatedQty, calculatedLeftover]);
+  }, [calculatedQty, calculatedLeftover, isNonInventory]);
+
+  // Prefill the per-unit default when a category that uses it is picked
+  useEffect(() => {
+    const def = CATEGORY_DEFAULT_METERS_PER_UNIT[watchedCategory];
+    const current = form.getValues("metersPerUnit");
+    if (def != null && (current == null || Number.isNaN(Number(current)))) {
+      form.setValue("metersPerUnit", def);
+    }
+  }, [watchedCategory]);
 
   useEffect(() => {
     if (!open) return;
@@ -260,7 +288,23 @@ export function AddItemWizard({
         customFabricImageUrl = url;
       }
 
-      const result = await addProjectItemAction(projectId, { ...values, customFabricImageUrl });
+      const category = values.itemCategory as ItemCategory;
+      const bedLabel = BED_TYPES.find((b) => b.key === values.bedType)?.labelEn;
+      const labels = buildItemTypeLabels(category, {
+        detail: category === "BED_COVERS" ? bedLabel : values.typeDetail,
+        customEn: values.itemTypeEn,
+        customAr: values.itemTypeAr,
+      });
+      const { typeDetail: _typeDetail, ...rest } = values;
+
+      const result = await addProjectItemAction(projectId, {
+        ...rest,
+        itemTypeEn: labels.itemTypeEn,
+        itemTypeAr: labels.itemTypeAr,
+        bedType: category === "BED_COVERS" ? values.bedType || undefined : undefined,
+        trackControl: category === "CURTAINS" ? values.trackControl : undefined,
+        customFabricImageUrl,
+      });
       if (result.success && result.data) {
         const fabricName =
           pickedFabric?.id
@@ -529,35 +573,78 @@ export function AddItemWizard({
 
                 <div className="border-t" />
 
-                {/* Item type */}
-                <div className="grid grid-cols-2 gap-4">
+                {/* Item category */}
+                <FormField
+                  control={form.control}
+                  name="itemCategory"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("itemType")}</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={t("selectCategory")} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {ITEM_CATEGORIES.map((c) => (
+                            <SelectItem key={c} value={c}>{t(`category.${c}`)}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Type detail — bed covers / chairs / sofas */}
+                {categoryFields.typeDetail && (
                   <FormField
                     control={form.control}
-                    name="itemTypeEn"
+                    name="typeDetail"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>{t("itemTypeEn")}</FormLabel>
+                        <FormLabel>{t("typeDetail")}</FormLabel>
                         <FormControl>
-                          <Input placeholder={t("itemTypePlaceholder")} {...field} />
+                          <Input placeholder={t("typeDetailPlaceholder")} {...field} value={field.value ?? ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  <FormField
-                    control={form.control}
-                    name="itemTypeAr"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t("itemTypeAr")}</FormLabel>
-                        <FormControl>
-                          <Input dir="rtl" placeholder="مثال: ستائر" {...field} value={field.value ?? ""} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                )}
+
+                {/* Custom label — OTHER */}
+                {categoryFields.customLabel && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="itemTypeEn"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t("itemTypeEn")}</FormLabel>
+                          <FormControl>
+                            <Input placeholder={t("itemTypePlaceholder")} {...field} value={field.value ?? ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="itemTypeAr"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t("itemTypeAr")}</FormLabel>
+                          <FormControl>
+                            <Input dir="rtl" placeholder="مثال: ستائر" {...field} value={field.value ?? ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
 
                 {/* Piece count — applies to all sources; enables staged deliveries */}
                 <FormField
@@ -580,8 +667,8 @@ export function AddItemWizard({
                   )}
                 />
 
-                {/* Dimension fields — CLIENT / DIRECT only */}
-                {isNonInventory && (
+                {/* Category-driven fabric calculation — all sources */}
+                {watchedCategory !== "OTHER" && (
                   <div className="rounded-xl border bg-muted/10 p-4 space-y-3">
                     <div className="flex items-center gap-2">
                       <Calculator className="h-3.5 w-3.5 text-muted-foreground" />
@@ -590,37 +677,154 @@ export function AddItemWizard({
                       </p>
                     </div>
 
-                    {/* Width + height (piece count is captured above) */}
-                    <div className="grid grid-cols-2 gap-3">
+                    {/* Bed type — fills width & height from the mattress size */}
+                    {categoryFields.bedType && (
                       <FormField
                         control={form.control}
-                        name="itemWidth"
+                        name="bedType"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>{t("wizard.itemWidth")} (m)</FormLabel>
-                            <FormControl>
-                              <Input type="number" onWheel={(e) => e.currentTarget.blur()} min="0" step="0.001" placeholder="0.00" {...field} value={field.value ?? ""} />
-                            </FormControl>
+                            <FormLabel>{t("wizard.bedType")}</FormLabel>
+                            <Select
+                              value={field.value || ""}
+                              onValueChange={(v) => {
+                                field.onChange(v);
+                                const dims = bedDimensions(v);
+                                if (dims) {
+                                  form.setValue("itemWidth", dims.width);
+                                  form.setValue("itemHeight", dims.height);
+                                }
+                              }}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder={t("wizard.selectBedType")} />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {BED_TYPES.map((b) => (
+                                  <SelectItem key={b.key} value={b.key}>
+                                    {b.labelEn} ({b.widthIn}″ × {b.lengthIn}″)
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                      <FormField
-                        control={form.control}
-                        name="itemHeight"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>{t("wizard.itemHeight")} (m)</FormLabel>
-                            <FormControl>
-                              <Input type="number" onWheel={(e) => e.currentTarget.blur()} min="0" step="0.001" placeholder="0.00" {...field} value={field.value ?? ""} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
+                    )}
 
-                    {/* Total supplied + production loss */}
+                    {/* Width + height — curtains, pillows & bed covers */}
+                    {categoryFields.dimensions && (
+                      <div className={cn("grid gap-3", categoryFields.depth ? "grid-cols-3" : "grid-cols-2")}>
+                        <FormField
+                          control={form.control}
+                          name="itemWidth"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{t("wizard.itemWidth")} (m)</FormLabel>
+                              <FormControl>
+                                <Input type="number" onWheel={(e) => e.currentTarget.blur()} min="0" step="0.001" placeholder="0.00" {...field} value={field.value ?? ""} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="itemHeight"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{t("wizard.itemHeight")} (m)</FormLabel>
+                              <FormControl>
+                                <Input type="number" onWheel={(e) => e.currentTarget.blur()} min="0" step="0.001" placeholder="0.00" {...field} value={field.value ?? ""} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        {categoryFields.depth && (
+                          <FormField
+                            control={form.control}
+                            name="itemDepth"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{t("wizard.itemDepth")} (m)</FormLabel>
+                                <FormControl>
+                                  <Input type="number" onWheel={(e) => e.currentTarget.blur()} min="0" step="0.001" placeholder="0.00" {...field} value={field.value ?? ""} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        )}
+                      </div>
+                    )}
+
+                    {/* Meters per unit — pillows, chairs, sofas */}
+                    {categoryFields.metersPerUnit && (
+                      <FormField
+                        control={form.control}
+                        name="metersPerUnit"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>
+                              {watchedCategory === "PILLOWS" ? t("wizard.metersPerPillow") : t("wizard.metersPerUnit")} {unitSuffix}
+                            </FormLabel>
+                            <FormControl>
+                              <Input type="number" onWheel={(e) => e.currentTarget.blur()} min="0" step="0.001" placeholder="0.000" className="max-w-48" {...field} value={field.value ?? ""} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+
+                    {/* Curtain track control — one track per curtain */}
+                    {categoryFields.trackControl && (
+                      <FormField
+                        control={form.control}
+                        name="trackControl"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t("wizard.trackControl")}</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value ?? ""}>
+                              <FormControl>
+                                <SelectTrigger className="max-w-48">
+                                  <SelectValue placeholder={t("wizard.selectTrackControl")} />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {TRACK_CONTROLS.map((c) => (
+                                  <SelectItem key={c} value={c}>{t(`wizard.track.${c}`)}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+
+                    {/* Live calculated fabric needed */}
+                    {calculatedQty !== null && (
+                      <div className="rounded-lg bg-muted/50 border px-3 py-2.5 flex justify-between items-center text-sm">
+                        <span className="text-muted-foreground">{t("wizard.fabricNeeded")}</span>
+                        <span className="font-semibold tabular-nums">
+                          {calculatedQty.toLocaleString()} {watchedUnit === "ROLLS" ? t("unitRolls") : t("unitMeters")}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Supplied-fabric reconciliation — CLIENT / DIRECT only */}
+                {isNonInventory && (
+                  <div className="rounded-xl border bg-muted/10 p-4 space-y-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      {t("wizard.reconciliationLabel")}
+                    </p>
                     <div className="grid grid-cols-2 gap-3">
                       <FormField
                         control={form.control}
@@ -649,38 +853,18 @@ export function AddItemWizard({
                         )}
                       />
                     </div>
-
-                    {/* Live calculation results */}
-                    {calculatedQty !== null && (
-                      <div className="rounded-lg bg-muted/50 border px-3 py-2.5 space-y-1.5 text-sm">
-                        <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground">{t("wizard.fabricNeeded")}</span>
-                          <span className="font-semibold tabular-nums">
-                            {calculatedQty.toLocaleString()} {watchedUnit === "ROLLS" ? t("unitRolls") : t("unitMeters")}
-                          </span>
-                        </div>
-                        {Number(watchedProductionLoss) > 0 && (
-                          <div className="flex justify-between items-center">
-                            <span className="text-muted-foreground">{t("wizard.productionLoss")}</span>
-                            <span className="font-semibold tabular-nums text-amber-600">
-                              {Number(watchedProductionLoss).toLocaleString()} {watchedUnit === "ROLLS" ? t("unitRolls") : t("unitMeters")}
-                            </span>
-                          </div>
-                        )}
-                        {calculatedLeftover !== null && (
-                          <div className="flex justify-between items-center">
-                            <span className="text-muted-foreground">{t("wizard.fabricLeftover")}</span>
-                            <span className={cn("font-semibold tabular-nums", calculatedLeftover < 0 ? "text-destructive" : "text-green-600")}>
-                              {calculatedLeftover.toLocaleString()} {watchedUnit === "ROLLS" ? t("unitRolls") : t("unitMeters")}
-                            </span>
-                          </div>
-                        )}
+                    {calculatedLeftover !== null && (
+                      <div className="rounded-lg bg-muted/50 border px-3 py-2.5 flex justify-between items-center text-sm">
+                        <span className="text-muted-foreground">{t("wizard.fabricLeftover")}</span>
+                        <span className={cn("font-semibold tabular-nums", calculatedLeftover < 0 ? "text-destructive" : "text-green-600")}>
+                          {calculatedLeftover.toLocaleString()} {watchedUnit === "ROLLS" ? t("unitRolls") : t("unitMeters")}
+                        </span>
                       </div>
                     )}
                   </div>
                 )}
 
-                {/* Quantity — auto-filled for non-inventory when dims are set, else manual */}
+                {/* Quantity — auto-filled from the formula, always editable */}
                 <FormField
                   control={form.control}
                   name="quantityNeeded"
@@ -688,15 +872,13 @@ export function AddItemWizard({
                     <FormItem>
                       <FormLabel>
                         {t("quantityNeeded")} {unitSuffix}
-                        {isNonInventory && calculatedQty !== null && (
+                        {calculatedQty !== null && (
                           <span className="ms-1 text-xs text-muted-foreground">({t("wizard.autoCalculated")})</span>
                         )}
                       </FormLabel>
                       <FormControl>
                         <Input
                           type="number" onWheel={(e) => e.currentTarget.blur()} min="0" step="0.001" placeholder="0"
-                          readOnly={isNonInventory && calculatedQty !== null}
-                          className={cn(isNonInventory && calculatedQty !== null && "bg-muted text-muted-foreground")}
                           {...field}
                         />
                       </FormControl>

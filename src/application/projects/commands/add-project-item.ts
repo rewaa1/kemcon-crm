@@ -7,5 +7,5 @@ export async function addProjectItem(
   input: AddProjectItemInput
 ): Promise<ProjectItem> {
   const data = projectItemSchema.parse(input);
-  return repo.addItem(projectId, data);
+  return repo.addItem(projectId, { ...data, itemTypeEn: data.itemTypeEn ?? "" });
 }

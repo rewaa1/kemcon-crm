@@ -5,7 +5,8 @@ import { resolve } from "path";
 
 config({ path: resolve(process.cwd(), ".env.local") });
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
+// Seeding is a bulk admin task — use the direct connection, not the pooler.
+const adapter = new PrismaPg({ connectionString: process.env.DIRECT_URL ?? process.env.DATABASE_URL! });
 const prisma = new PrismaClient({ adapter });
 
 // ─── FIFO stock tracker ────────────────────────────────────────────────────────

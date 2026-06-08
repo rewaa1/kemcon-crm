@@ -237,7 +237,10 @@ model ProjectItem {
   customFabricName     String?
   customFabricCode     String?
   customFabricImageUrl String?
-  // e.g. "curtains", "sofa upholstery", "bed sheets"
+  // Structured item category: CURTAINS | PILLOWS | BED_COVERS | CHAIRS | SOFAS | OTHER
+  // (null for legacy rows created before categories existed)
+  itemCategory     String?
+  // Human label — for OTHER it's the custom type; for fixed categories it mirrors the category name (+ optional type detail)
   itemTypeEn       String
   itemTypeAr       String?
   // e.g. "Suite 301", "Lobby"
@@ -249,10 +252,19 @@ model ProjectItem {
   source           SupplySource  @default(INVENTORY)
   notes            String?
 
-  // Dimensions & production fields (CLIENT / DIRECT only)
+  // Dimensions & calculation fields
   itemCount        Int?
   itemWidth        Decimal?      @db.Decimal(10, 3)
   itemHeight       Decimal?      @db.Decimal(10, 3)
+  // Pillow depth (third dimension)
+  itemDepth        Decimal?      @db.Decimal(10, 3)
+  // Meters consumed per unit — per pillow / per chair / per sofa
+  metersPerUnit    Decimal?      @db.Decimal(10, 3)
+  // Bed cover mattress size: TWIN | FULL | QUEEN | KING | CAL_KING
+  bedType          String?
+  // Curtain track control: MANUAL | REMOTE (one track per curtain)
+  trackControl     String?
+  // Production reconciliation (CLIENT / DIRECT only)
   totalSupplied    Decimal?      @db.Decimal(12, 3)
   productionLoss   Decimal?      @db.Decimal(12, 3)
   fabricLeftover   Decimal?      @db.Decimal(12, 3)
