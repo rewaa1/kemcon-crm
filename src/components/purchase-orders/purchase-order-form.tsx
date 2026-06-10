@@ -36,11 +36,13 @@ function LineRow({
   control,
   fabrics,
   onRemove,
+  variant,
 }: {
   index: number;
   control: any;
   fabrics: FabricSummary[];
   onRemove: () => void;
+  variant: "mobile" | "desktop";
 }) {
   const t = useTranslations("purchaseOrders");
   const fabricId = useWatch({ control, name: `lines.${index}.fabricId` });
@@ -123,25 +125,27 @@ function LineRow({
   ) : null;
 
   /* Mobile card layout */
-  const mobileCard = (
-    <div className="md:hidden rounded-md border p-3 space-y-3">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex-1">{fabricField}</div>
-        <Button type="button" variant="ghost" size="icon" onClick={onRemove} className="shrink-0 mt-0.5">
-          <Trash2 className="h-4 w-4 text-destructive" />
-        </Button>
+  if (variant === "mobile") {
+    return (
+      <div className="rounded-md border p-3 space-y-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1">{fabricField}</div>
+          <Button type="button" variant="ghost" size="icon" onClick={onRemove} className="shrink-0 mt-0.5">
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>{qtyField}</div>
+          <div>{priceField}</div>
+        </div>
+        {mprField && <div>{mprField}</div>}
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>{qtyField}</div>
-        <div>{priceField}</div>
-      </div>
-      {mprField && <div>{mprField}</div>}
-    </div>
-  );
+    );
+  }
 
   /* Desktop table row */
-  const desktopRow = (
-    <TableRow className="hidden md:table-row">
+  return (
+    <TableRow>
       <TableCell className="align-top pt-3">{fabricField}</TableCell>
       <TableCell className="align-top pt-3">{qtyField}</TableCell>
       <TableCell className="align-top pt-3">{priceField}</TableCell>
@@ -152,13 +156,6 @@ function LineRow({
         </Button>
       </TableCell>
     </TableRow>
-  );
-
-  return (
-    <>
-      {mobileCard}
-      {desktopRow}
-    </>
   );
 }
 
@@ -277,6 +274,7 @@ export function PurchaseOrderForm({ vendors, fabrics, locale, suggestedPoNumber 
                 control={form.control}
                 fabrics={fabrics}
                 onRemove={() => remove(index)}
+                variant="mobile"
               />
             ))}
           </div>
@@ -300,6 +298,7 @@ export function PurchaseOrderForm({ vendors, fabrics, locale, suggestedPoNumber 
                     control={form.control}
                     fabrics={fabrics}
                     onRemove={() => remove(index)}
+                    variant="desktop"
                   />
                 ))}
               </TableBody>
