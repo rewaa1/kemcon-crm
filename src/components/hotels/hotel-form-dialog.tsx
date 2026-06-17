@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useEffect, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -33,6 +33,13 @@ export function HotelFormDialog({ open, onOpenChange, hotel }: Props) {
     resolver: zodResolver(hotelSchema),
     defaultValues: { nameEn: hotel?.nameEn ?? "", nameAr: hotel?.nameAr ?? "" },
   });
+
+  // Dialog is reused across opens — re-seed fields each time it opens.
+  useEffect(() => {
+    if (!open) return;
+    form.reset({ nameEn: hotel?.nameEn ?? "", nameAr: hotel?.nameAr ?? "" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, hotel]);
 
   function onSubmit(values: HotelFormValues) {
     startTransition(async () => {

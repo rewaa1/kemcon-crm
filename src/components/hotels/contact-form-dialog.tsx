@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useEffect, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -45,6 +45,21 @@ export function ContactFormDialog({ hotelId, open, onOpenChange, contact }: Prop
       isPrimary: contact?.isPrimary ?? false,
     },
   });
+
+  // The dialog stays mounted across opens, so defaultValues alone won't refresh.
+  // Re-seed the form whenever it opens (with the contact's values when editing).
+  useEffect(() => {
+    if (!open) return;
+    form.reset({
+      nameEn: contact?.nameEn ?? "",
+      nameAr: contact?.nameAr ?? "",
+      role: contact?.role ?? "",
+      phone: contact?.phone ?? "",
+      email: contact?.email ?? "",
+      isPrimary: contact?.isPrimary ?? false,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, contact]);
 
   function onSubmit(values: ContactFormValues) {
     startTransition(async () => {

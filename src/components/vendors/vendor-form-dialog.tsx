@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useEffect, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -39,6 +39,19 @@ export function VendorFormDialog({ open, onOpenChange, vendor }: Props) {
       address: vendor?.address ?? "",
     },
   });
+
+  // Dialog is reused across opens — re-seed fields each time it opens.
+  useEffect(() => {
+    if (!open) return;
+    form.reset({
+      nameEn: vendor?.nameEn ?? "",
+      nameAr: vendor?.nameAr ?? "",
+      phone: vendor?.phone ?? "",
+      email: vendor?.email ?? "",
+      address: vendor?.address ?? "",
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, vendor]);
 
   function onSubmit(values: VendorFormValues) {
     startTransition(async () => {

@@ -17,6 +17,7 @@ export type FabricSummary = {
   codeRef: string;
   nameEn: string;
   nameAr: string | null;
+  description: string | null;
   imageUrl: string | null;
   unit: FabricUnit;
   createdAt: Date;

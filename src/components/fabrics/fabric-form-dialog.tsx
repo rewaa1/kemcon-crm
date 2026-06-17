@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -54,11 +54,28 @@ export function FabricFormDialog({ open, onOpenChange, fabric, vendors }: Props)
       codeRef: fabric?.codeRef ?? "",
       nameEn: fabric?.nameEn ?? "",
       nameAr: fabric?.nameAr ?? "",
-      description: "",
+      description: fabric?.description ?? "",
       unit: fabric?.unit ?? "METERS",
       vendorIds: fabric?.vendors.map((v) => v.vendorId) ?? [],
     },
   });
+
+  // Dialog is reused across opens — re-seed fields and image state each open.
+  useEffect(() => {
+    if (!open) return;
+    form.reset({
+      codeRef: fabric?.codeRef ?? "",
+      nameEn: fabric?.nameEn ?? "",
+      nameAr: fabric?.nameAr ?? "",
+      description: fabric?.description ?? "",
+      unit: fabric?.unit ?? "METERS",
+      vendorIds: fabric?.vendors.map((v) => v.vendorId) ?? [],
+    });
+    setSelectedFile(null);
+    setPreviewSrc(fabric?.imageUrl ?? null);
+    setImageRemoved(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, fabric]);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];

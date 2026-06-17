@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useEffect, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -48,6 +48,20 @@ export function ProjectFormDialog({ open, onOpenChange, project, hotels }: Props
       notes: "",
     },
   });
+
+  // Dialog is reused across opens — re-seed fields each time it opens.
+  useEffect(() => {
+    if (!open) return;
+    form.reset({
+      nameEn: project?.nameEn ?? "",
+      nameAr: project?.nameAr ?? "",
+      hotelId: project?.hotel.id ?? "",
+      startDate: project?.startDate ? format(new Date(project.startDate), "yyyy-MM-dd") : "",
+      deliveryDate: project?.deliveryDate ? format(new Date(project.deliveryDate), "yyyy-MM-dd") : "",
+      notes: "",
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, project]);
 
   function onSubmit(values: ProjectFormValues) {
     startTransition(async () => {
